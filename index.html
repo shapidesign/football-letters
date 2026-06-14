@@ -660,8 +660,20 @@ const Stadium = (function(){
   const SG = 1;
 
   function pitch(){
-    const pw = W*0.50, ph = H*0.50;
-    return {px:(W-pw)/2, py:(H-ph)/2, pw, ph};
+    const portrait = W <= H;
+    let pw, ph;
+    if(portrait){
+      // vertical pitch: long axis top→bottom, goals at top & bottom
+      pw = Math.min(W*0.56, H*0.36);
+      ph = pw*(105/68);
+      if(ph > H*0.56){ ph = H*0.56; pw = ph*(68/105); }
+    } else {
+      // horizontal pitch: long axis left→right, goals at left & right
+      ph = Math.min(H*0.56, W*0.36);
+      pw = ph*(105/68);
+      if(pw > W*0.58){ pw = W*0.58; ph = pw*(68/105); }
+    }
+    return {px:(W-pw)/2, py:(H-ph)/2, pw, ph, portrait};
   }
 
   function rr(ctx,x,y,w,h,r){
@@ -744,45 +756,82 @@ const Stadium = (function(){
   }
 
   function drawPitch(){
-    const {px,py,pw,ph}=pitch();
+    const {px,py,pw,ph,portrait}=pitch();
+    const shorter=Math.min(pw,ph);
     // green field
     ctx.fillStyle='#2a7d3a';
     rr(ctx,px,py,pw,ph,4); ctx.fill();
-    // stripes
-    const ns=10, sw_s=pw/ns;
-    for(let i=0;i<ns;i++){
-      ctx.fillStyle=i%2===0?'rgba(255,255,255,.03)':'rgba(0,0,0,.06)';
-      ctx.fillRect(px+i*sw_s,py,sw_s,ph);
+    // stripes — run along the long axis
+    const ns=10;
+    if(portrait){
+      const sw_s=pw/ns;
+      for(let i=0;i<ns;i++){
+        ctx.fillStyle=i%2===0?'rgba(255,255,255,.03)':'rgba(0,0,0,.06)';
+        ctx.fillRect(px+i*sw_s,py,sw_s,ph);
+      }
+    } else {
+      const sh_s=ph/ns;
+      for(let i=0;i<ns;i++){
+        ctx.fillStyle=i%2===0?'rgba(255,255,255,.03)':'rgba(0,0,0,.06)';
+        ctx.fillRect(px,py+i*sh_s,pw,sh_s);
+      }
     }
     // white lines
     ctx.strokeStyle='rgba(255,255,255,.85)';
-    ctx.lineWidth=Math.max(1,W*.0012);
+    ctx.lineWidth=Math.max(1,shorter*.003);
     ctx.strokeRect(px+2,py+2,pw-4,ph-4);
-    // halfway
-    ctx.beginPath(); ctx.moveTo(px,py+ph/2); ctx.lineTo(px+pw,py+ph/2); ctx.stroke();
-    // center circle
-    ctx.beginPath(); ctx.arc(px+pw/2,py+ph/2,ph*.14,0,Math.PI*2); ctx.stroke();
+    // center circle — radius = 9.15/68 ≈ 13.5% of shorter side
+    const ccr=shorter*.135;
+    ctx.beginPath(); ctx.arc(px+pw/2,py+ph/2,ccr,0,Math.PI*2); ctx.stroke();
     ctx.beginPath(); ctx.arc(px+pw/2,py+ph/2,2.5,0,Math.PI*2);
     ctx.fillStyle='rgba(255,255,255,.85)'; ctx.fill();
-    // penalty boxes
-    const pbw=pw*.56,pbh=ph*.18;
-    ctx.strokeRect(px+(pw-pbw)/2,py+2,pbw,pbh);
-    ctx.strokeRect(px+(pw-pbw)/2,py+ph-pbh-2,pbw,pbh);
-    const gbw=pw*.32,gbh=ph*.08;
-    ctx.strokeRect(px+(pw-gbw)/2,py+2,gbw,gbh);
-    ctx.strokeRect(px+(pw-gbw)/2,py+ph-gbh-2,gbw,gbh);
-    // corner arcs
-    const cr=ph*.028;
-    [[px+2,py+2,0,Math.PI/2],[px+pw-2,py+2,Math.PI/2,Math.PI],[px+2,py+ph-2,-Math.PI/2,0],[px+pw-2,py+ph-2,Math.PI,3*Math.PI/2]]
-      .forEach(([x,y,a,b])=>{ctx.beginPath();ctx.arc(x,y,cr,a,b);ctx.stroke();});
-    // goals
-    const gw=pw*.11,gh=ph*.022;
-    ctx.fillStyle='rgba(255,255,255,.25)';
-    ctx.fillRect(px+(pw-gw)/2,py-gh,gw,gh);
-    ctx.fillRect(px+(pw-gw)/2,py+ph,gw,gh);
+    // corner arc radius
+    const car=shorter*.038;
+
+    if(portrait){
+      // vertical pitch: goals at top & bottom, halfway line is horizontal
+      ctx.beginPath(); ctx.moveTo(px,py+ph/2); ctx.lineTo(px+pw,py+ph/2); ctx.stroke();
+      // penalty areas (18-yd box): 59% wide, 15.7% deep
+      const pbw=pw*.593, pbh=ph*.157;
+      ctx.strokeRect(px+(pw-pbw)/2,py+2,pbw,pbh);
+      ctx.strokeRect(px+(pw-pbw)/2,py+ph-pbh-2,pbw,pbh);
+      // goal areas (6-yd box): 26.9% wide, 5.2% deep
+      const gbw=pw*.269, gbh=ph*.052;
+      ctx.strokeRect(px+(pw-gbw)/2,py+2,gbw,gbh);
+      ctx.strokeRect(px+(pw-gbw)/2,py+ph-gbh-2,gbw,gbh);
+      // goals: 10.8% wide, small depth
+      const gw=pw*.108, gh=Math.max(4,ph*.016);
+      ctx.fillStyle='rgba(255,255,255,.25)';
+      ctx.fillRect(px+(pw-gw)/2,py-gh,gw,gh);
+      ctx.fillRect(px+(pw-gw)/2,py+ph,gw,gh);
+      // corner arcs
+      [[px+2,py+2,0,Math.PI/2],[px+pw-2,py+2,Math.PI/2,Math.PI],
+       [px+2,py+ph-2,-Math.PI/2,0],[px+pw-2,py+ph-2,Math.PI,3*Math.PI/2]]
+        .forEach(([x,y,a,b])=>{ctx.beginPath();ctx.arc(x,y,car,a,b);ctx.stroke();});
+    } else {
+      // horizontal pitch: goals at left & right, halfway line is vertical
+      ctx.beginPath(); ctx.moveTo(px+pw/2,py); ctx.lineTo(px+pw/2,py+ph); ctx.stroke();
+      // penalty areas (18-yd box): 59% of height wide, 15.7% of length deep
+      const pbh_w=ph*.593, pbw_d=pw*.157;
+      ctx.strokeRect(px+2,py+(ph-pbh_w)/2,pbw_d,pbh_w);
+      ctx.strokeRect(px+pw-pbw_d-2,py+(ph-pbh_w)/2,pbw_d,pbh_w);
+      // goal areas (6-yd box): 26.9% of height wide, 5.2% of length deep
+      const gbh_w=ph*.269, gbw_d=pw*.052;
+      ctx.strokeRect(px+2,py+(ph-gbh_w)/2,gbw_d,gbh_w);
+      ctx.strokeRect(px+pw-gbw_d-2,py+(ph-gbh_w)/2,gbw_d,gbh_w);
+      // goals: 10.8% of height, small depth
+      const gh=ph*.108, gw=Math.max(4,pw*.016);
+      ctx.fillStyle='rgba(255,255,255,.25)';
+      ctx.fillRect(px-gw,py+(ph-gh)/2,gw,gh);
+      ctx.fillRect(px+pw,py+(ph-gh)/2,gw,gh);
+      // corner arcs
+      [[px+2,py+2,0,Math.PI/2],[px+pw-2,py+2,Math.PI/2,Math.PI],
+       [px+2,py+ph-2,-Math.PI/2,0],[px+pw-2,py+ph-2,Math.PI,3*Math.PI/2]]
+        .forEach(([x,y,a,b])=>{ctx.beginPath();ctx.arc(x,y,car,a,b);ctx.stroke();});
+    }
     // running track
     ctx.strokeStyle='rgba(180,140,80,.35)';
-    ctx.lineWidth=Math.max(4,W*.006);
+    ctx.lineWidth=Math.max(4,shorter*.008);
     rr(ctx,px-ctx.lineWidth/2-6,py-ctx.lineWidth/2-6,pw+ctx.lineWidth+12,ph+ctx.lineWidth+12,10);
     ctx.stroke();
     ctx.lineWidth=1;
