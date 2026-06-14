@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>אצטדיון האהבה</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0D0D12; --surface:#18181F; --border:rgba(255,255,255,.1);
+  --text:#F0F2F5; --muted:#7A8299;
+  --cp:#4A9EFF; --cg:#4A9EFF; --oc:#fff;
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+*,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sans-serif;
+  overflow:hidden;position:fixed;inset:0;-webkit-font-smoothing:antialiased}
+
+/* canvas */
+#stadium{position:fixed;inset:0;width:100%;height:100%;display:block;background:#09090f}
+
+/* gate */
+#gate{position:fixed;inset:0;z-index:10;pointer-events:none}
+#gate-l,#gate-r{position:absolute;top:0;height:100%;width:50%;background:var(--bg);
+  transition:transform .8s cubic-bezier(.7,0,.3,1);will-change:transform}
+#gate-l{left:0}
+#gate-r{right:0}
+#gate.open #gate-l{transform:translateX(-100%)}
+#gate.open #gate-r{transform:translateX(100%)}
+
+/* wallui */
+#wallui{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;
+  justify-content:space-between;padding:max(16px,env(safe-area-inset-top)) 16px max(28px,env(safe-area-inset-bottom));
+  pointer-events:none;z-index:5}
+#wallui.on{display:flex}
+.legend-wrap{pointer-events:auto;width:100%;max-width:min(860px,96vw);overflow-x:auto;
+  -webkit-overflow-scrolling:touch}
+.legend-inner{display:flex;flex-wrap:nowrap;gap:8px;padding:8px 12px;
+  background:rgba(13,13,18,.88);border:1px solid var(--border);border-radius:999px;
+  width:max-content}
+.lchip{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;
+  color:var(--muted);background:none;border:none;cursor:pointer;padding:4px 8px;
+  border-radius:999px;white-space:nowrap;font-family:inherit;
+  transition:color .2s,background .2s}
+.lchip:hover{color:var(--text);background:rgba(255,255,255,.07)}
+.lswatch{width:10px;height:10px;border-radius:50%;flex:none}
+.lcnt{font-size:11px;opacity:.6}
+.cta-wrap{pointer-events:auto;display:flex;flex-direction:column;align-items:center}
+.wall-cta{font-family:inherit;font-weight:700;font-size:clamp(15px,3.8vw,19px);
+  color:var(--oc);background:var(--cp);border:none;border-radius:999px;
+  padding:16px 32px;cursor:pointer;white-space:nowrap;
+  box-shadow:0 8px 32px -8px var(--cg);
+  transition:transform .2s var(--ease),filter .2s,box-shadow .2s;
+  animation:pcta 2.8s ease-in-out infinite}
+@keyframes pcta{0%,100%{box-shadow:0 8px 32px -8px var(--cg)}50%{box-shadow:0 8px 52px -4px var(--cg)}}
+.wall-cta:hover{transform:translateY(-3px);filter:brightness(1.1)}
+.wall-cta:active{transform:scale(.97);animation:none}
+
+/* ui overlay */
+#ui{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+  background:var(--bg);transition:opacity .5s var(--ease)}
+#ui.gone{opacity:0;pointer-events:none}
+
+/* screens */
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:max(28px,env(safe-area-inset-top)) 20px max(28px,env(safe-area-inset-bottom));
+  gap:20px;width:100%;max-width:min(640px,96vw);margin:0 auto;overflow-y:auto;
+  opacity:0;pointer-events:none;visibility:hidden;
+  transform:translateY(14px);transition:opacity .5s var(--ease),transform .5s var(--ease)}
+.screen.active{opacity:1;pointer-events:auto;visibility:visible;transform:none}
+
+/* intro */
+.intro-badge{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--cp);background:rgba(74,158,255,.12);padding:6px 16px;border-radius:999px}
+.intro-h{font-size:clamp(36px,9vw,56px);font-weight:800;line-height:1.12;
+  text-align:center;letter-spacing:-.03em;margin:0}
+.intro-p{font-size:clamp(16px,4vw,20px);color:var(--muted);text-align:center;
+  line-height:1.7;max-width:22em}
+.intro-btn{font-family:inherit;font-weight:700;font-size:18px;color:var(--oc);
+  background:var(--cp);border:none;border-radius:999px;padding:18px 48px;cursor:pointer;
+  box-shadow:0 8px 32px -8px var(--cg);transition:transform .2s var(--ease),filter .2s;margin-top:8px}
+.intro-btn:hover{transform:translateY(-3px);filter:brightness(1.1)}
+.intro-btn:active{transform:scale(.97)}
+
+/* entry */
+.stitle{font-size:clamp(22px,5.5vw,34px);font-weight:700;text-align:center;
+  line-height:1.35;letter-spacing:-.02em}
+.ssub{font-size:16px;color:var(--muted);text-align:center}
+.grid-c{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;width:100%}
+@media(min-width:480px){.grid-c{grid-template-columns:repeat(4,1fr)}}
+.pill{font-family:inherit;font-weight:600;font-size:15px;color:var(--text);
+  background:var(--surface);border:1.5px solid var(--border);border-radius:16px;
+  padding:14px 16px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  gap:9px;min-height:52px;width:100%;
+  transition:transform .2s var(--ease),background .2s,border-color .2s,box-shadow .2s}
+.pill:hover{transform:translateY(-2px);background:rgba(255,255,255,.07);
+  border-color:rgba(255,255,255,.22);box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.pill:active{transform:scale(.97)}
+.flag{width:24px;height:16px;border-radius:3px;object-fit:cover;flex:none}
+.backbtn{font-family:inherit;font-size:14px;font-weight:500;color:var(--muted);
+  background:var(--surface);border:1.5px solid var(--border);border-radius:999px;
+  padding:8px 18px;cursor:pointer;align-self:flex-start;
+  transition:color .2s,background .2s}
+.backbtn:hover{color:var(--text);background:rgba(255,255,255,.07)}
+.club-hdr{display:flex;align-items:center;gap:8px;width:100%}
+.club-search{width:100%;font-family:inherit;font-size:16px;color:var(--text);
+  background:var(--surface);border:1.5px solid var(--border);border-radius:14px;
+  padding:14px 18px;outline:none;transition:border-color .2s}
+.club-search::placeholder{color:var(--muted)}
+.club-search:focus{border-color:var(--cp)}
+.clubs-list{width:100%;max-height:52vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:2px 0}
+.cpill{display:flex;align-items:center;gap:12px;background:var(--surface);
+  border:1.5px solid var(--border);border-radius:14px;padding:12px 16px;
+  cursor:pointer;width:100%;
+  transition:transform .2s var(--ease),background .2s,border-color .2s}
+.cpill:hover{transform:translateX(-3px);background:rgba(255,255,255,.07);border-color:var(--cp)}
+.cpill:active{transform:scale(.98)}
+.crest{width:32px;height:32px;border-radius:50%;flex:none;background-size:contain;
+  background-repeat:no-repeat;background-position:center;background-color:#fff;
+  border:1.5px solid rgba(255,255,255,.15)}
+.cpill-name{font-size:16px;font-weight:600;color:var(--text)}
+
+/* write */
+.write-h{font-size:clamp(20px,5vw,30px);font-weight:700;text-align:center;
+  line-height:1.4;max-width:18em}
+.sugg-grid{display:flex;flex-direction:column;gap:10px;width:100%}
+@media(min-width:500px){.sugg-grid{display:grid;grid-template-columns:1fr 1fr}}
+.schip{font-family:inherit;font-size:15px;font-weight:500;color:var(--muted);
+  background:var(--surface);border:1.5px solid var(--border);border-radius:14px;
+  padding:14px 18px;cursor:pointer;text-align:start;line-height:1.5;
+  transition:transform .2s,color .2s,background .2s,border-color .2s}
+.schip:hover{transform:translateY(-2px);color:var(--text);
+  background:rgba(255,255,255,.07);border-color:var(--cp)}
+.schip.on{color:var(--text);border-color:var(--cp);background:rgba(74,158,255,.08)}
+.pad{width:100%;background:#fff;border-radius:16px;padding:20px 22px;
+  box-shadow:0 12px 40px rgba(0,0,0,.4)}
+.pad textarea{width:100%;min-height:130px;resize:none;border:none;background:transparent;
+  outline:none;font-family:inherit;font-size:18px;line-height:1.75;color:#1A1A24;
+  text-align:start;direction:rtl}
+.pad textarea::placeholder{color:rgba(26,26,36,.35)}
+
+/* reveal */
+#screen-reveal{justify-content:center}
+.lcard{width:100%;max-width:480px;background:#fff;color:#1A1A24;border-radius:16px;
+  padding:26px 24px;box-shadow:0 16px 48px rgba(0,0,0,.45);transform:rotate(.3deg)}
+.salute{font-size:21px;font-weight:700;margin-bottom:14px}
+.addr{display:inline-block;border-bottom:2.5px solid var(--cp);
+  padding:0 .1em;transition:opacity .5s,filter .5s}
+.addr.swap{opacity:0;filter:blur(4px)}
+.lbody{font-size:17px;line-height:1.85;white-space:pre-wrap;word-break:break-word}
+.lbody .swapped{font-weight:700;border-bottom:2px solid var(--cp)}
+.rev-prompt{font-size:clamp(17px,4.2vw,22px);font-weight:600;text-align:center;
+  max-width:18em;line-height:1.5;opacity:0;transition:opacity .9s var(--ease)}
+.people-g{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
+  max-width:480px;opacity:0;transition:opacity .9s var(--ease)}
+.pbtn{font-family:inherit;font-size:16px;font-weight:600;color:var(--text);
+  background:var(--surface);border:1.5px solid var(--border);border-radius:999px;
+  padding:12px 22px;cursor:pointer;
+  transition:transform .2s,background .2s,color .2s,border-color .2s}
+.pbtn:hover{transform:translateY(-2px);border-color:var(--cp)}
+.pbtn:active{transform:scale(.97)}
+.pbtn.chosen{background:var(--cp);color:var(--oc);border-color:transparent}
+.name-wrap{width:100%;max-width:380px;opacity:0;transition:opacity .6s var(--ease);
+  display:flex;flex-direction:column;gap:10px;align-items:center}
+.name-wrap.on{opacity:1}
+.name-hint{font-size:15px;color:var(--muted);text-align:center}
+.name-inp{width:100%;font-family:inherit;font-size:17px;font-weight:500;color:var(--text);
+  background:var(--surface);border:1.5px solid var(--border);border-radius:14px;
+  padding:14px 18px;outline:none;text-align:center;
+  transition:border-color .2s}
+.name-inp:focus{border-color:var(--cp)}
+.coda{font-style:italic;font-size:16px;color:var(--muted);text-align:center;
+  opacity:0;transition:opacity 1s var(--ease)}
+.show{opacity:1!important}
+
+/* consent */
+.ctitle{font-size:clamp(20px,5vw,28px);font-weight:700;text-align:center;
+  line-height:1.4;max-width:18em}
+.cethics{font-size:14px;color:var(--muted);text-align:center;max-width:26em;line-height:1.65}
+.phone-panel{width:100%;max-width:360px;display:none;flex-direction:column;
+  gap:12px;align-items:center}
+.phone-panel.on{display:flex}
+.phone-hint{font-size:14px;color:var(--muted);text-align:center;line-height:1.6}
+.phone-inp{width:100%;font-family:inherit;font-size:20px;font-weight:600;color:var(--text);
+  background:var(--surface);border:2px solid var(--border);border-radius:14px;
+  padding:16px 20px;outline:none;text-align:center;letter-spacing:.06em;
+  transition:border-color .2s}
+.phone-inp:focus{border-color:var(--cp)}
+
+/* buttons */
+.btn{font-family:inherit;font-weight:700;font-size:17px;border:none;
+  border-radius:999px;padding:16px 36px;cursor:pointer;
+  transition:transform .2s var(--ease),filter .2s,box-shadow .2s}
+.btn-p{background:var(--cp);color:var(--oc);box-shadow:0 8px 28px -8px var(--cg)}
+.btn-p:hover{transform:translateY(-2px);filter:brightness(1.1)}
+.btn-p:active{transform:scale(.97);box-shadow:none}
+.btn-g{background:var(--surface);color:var(--muted);border:1.5px solid var(--border)}
+.btn-g:hover{color:var(--text);background:rgba(255,255,255,.07);transform:translateY(-2px)}
+.btn-g:active{transform:scale(.97)}
+.btn-wa{background:#25D366;color:#fff;display:flex;align-items:center;gap:8px;
+  box-shadow:0 8px 28px -8px rgba(37,211,102,.45)}
+.btn-wa:hover{transform:translateY(-2px);filter:brightness(1.08)}
+.btn-wa:active{transform:scale(.97)}
+.btnrow{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+
+/* reader */
+#reader{position:fixed;inset:0;z-index:30;display:none;align-items:flex-end;
+  justify-content:center;background:rgba(4,4,8,.62);padding:20px}
+#reader.on{display:flex}
+.rcard{width:100%;max-width:440px;background:#fff;color:#1A1A24;border-radius:20px;
+  padding:28px 26px;box-shadow:0 -4px 48px rgba(0,0,0,.5);
+  animation:rise .4s var(--ease)}
+@keyframes rise{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.rclub{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;
+  color:#6b7280;margin-bottom:14px}
+.rbody{font-size:18px;line-height:1.85;white-space:pre-wrap;word-break:break-word}
+.rclose{margin-top:20px;display:block;width:100%;font-family:inherit;font-size:14px;
+  color:#9ca3af;background:none;border:none;cursor:pointer;text-align:center;padding:8px}
+
+/* sound */
+#sound{position:fixed;top:max(16px,env(safe-area-inset-top));left:16px;z-index:40;
+  background:rgba(24,24,31,.9);border:1px solid var(--border);border-radius:999px;
+  width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+  font-size:16px;cursor:pointer;color:var(--muted);font-family:inherit;
+  transition:color .2s,background .2s}
+#sound:hover{color:var(--text)}
+
+/* toast */
+#toast{position:fixed;bottom:max(28px,env(safe-area-inset-bottom));inset-inline:0;
+  display:flex;justify-content:center;z-index:50;pointer-events:none}
+#toast span{background:rgba(13,13,18,.96);color:var(--text);font-size:15px;font-weight:500;
+  padding:12px 22px;border-radius:999px;border:1px solid var(--border);
+  opacity:0;transform:translateY(10px);transition:.4s var(--ease);
+  max-width:88vw;text-align:center}
+#toast span.on{opacity:1;transform:none}
+
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.001ms!important;animation-duration:.001ms!important}}
+</style>
+</head>
+<body>
+
+<canvas id="stadium"></canvas>
+<div id="gate"><div id="gate-l"></div><div id="gate-r"></div></div>
+<button id="sound" aria-label="צליל">♪</button>
+
+<div id="wallui">
+  <div class="legend-wrap"><div class="legend-inner" id="legend"></div></div>
+  <div class="cta-wrap">
+    <button class="wall-cta" id="addBtn">כתוב מכתב אהבה לקבוצה שאתה כל כך אוהב</button>
+  </div>
+</div>
+
+<div id="ui">
+
+  <section class="screen" id="screen-intro">
+    <span class="intro-badge">אצטדיון האהבה</span>
+    <h1 class="intro-h">מכתב אהבה<br>לקבוצה שלך</h1>
+    <p class="intro-p">כל אוהד נושא בתוכו מילים שלא אמר.<br>כאן תאמר אותן — ואולי תגלה למי הן באמת מיועדות.</p>
+    <button class="intro-btn" id="enterBtn">כנס לאצטדיון</button>
+  </section>
+
+  <section class="screen" id="screen-entry">
+    <div id="step-country" style="display:flex;flex-direction:column;gap:20px;align-items:center;width:100%">
+      <div class="stitle">לכל אחד יש קבוצה שהוא אוהב.<br>בחר את שלך.</div>
+      <div class="ssub">בחר מדינה</div>
+      <div class="grid-c" id="countries"></div>
+    </div>
+    <div id="step-club" style="display:none;flex-direction:column;gap:14px;align-items:center;width:100%">
+      <button class="backbtn" id="backToCountry">→ חזרה למדינות</button>
+      <div class="club-hdr">
+        <img class="flag" id="clubFlag" alt="" width="24" height="16">
+        <span id="clubCountryLabel" style="font-size:18px;font-weight:700"></span>
+        <span id="clubCount" style="font-size:13px;color:var(--muted);margin-right:auto"></span>
+      </div>
+      <input type="search" class="club-search" id="clubSearch" placeholder="חיפוש קבוצה..." dir="rtl" autocomplete="off">
+      <div class="clubs-list" id="clubs"></div>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-write">
+    <div class="write-h">כתוב לקבוצה שלך מכתב אהבה.<br>מה שתמיד רצית להגיד לה.</div>
+    <div class="sugg-grid" id="suggestions"></div>
+    <div class="pad"><textarea id="letterInput" placeholder="כתוב כאן..." dir="rtl" rows="5"></textarea></div>
+    <button class="btn btn-p" id="sendLetter">המשך</button>
+  </section>
+
+  <section class="screen" id="screen-reveal">
+    <div class="lcard" id="revealLetter" style="opacity:0">
+      <div class="salute">אֶל <span class="addr" id="revAddr"></span></div>
+      <div class="lbody" id="revBody"></div>
+    </div>
+    <div class="rev-prompt" id="revPrompt">עכשיו, קרא את זה שוב — אבל לא לקבוצה.</div>
+    <div class="people-g" id="people"></div>
+    <div class="name-wrap" id="nameWrap">
+      <div class="name-hint">רוצה להוסיף את השם שלו/שלה?</div>
+      <input type="text" class="name-inp" id="nameInput" placeholder="השם (אופציונלי)" dir="rtl">
+    </div>
+    <div class="coda" id="revCoda">אותן מילים. רק היעד השתנה.</div>
+    <button class="btn btn-p" id="toConsent" style="opacity:0;pointer-events:none">המשך</button>
+  </section>
+
+  <section class="screen" id="screen-consent">
+    <div class="ctitle">רוצה שהמילים האלה<br>באמת יגיעו למי שהן מיועדות?</div>
+    <div class="btnrow">
+      <button class="btn btn-p" id="sendReal">שלח באמת</button>
+      <button class="btn btn-g" id="notNow">לא עכשיו</button>
+    </div>
+    <div class="phone-panel" id="phonePanel">
+      <div class="phone-hint">הכנס מספר טלפון — נפתח לך וואטסאפ עם המכתב מוכן לשליחה</div>
+      <input type="tel" class="phone-inp" id="phoneInput" placeholder="050-0000000" dir="ltr" inputmode="numeric">
+      <button class="btn btn-wa" id="sendWA">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        שלח בוואטסאפ
+      </button>
+    </div>
+    <div class="cethics">השליחה נעשית ממך, בידיים שלך. שום דבר לא נשלח מאחורי הגב.</div>
+  </section>
+
+</div>
+
+<div id="reader">
+  <div class="rcard">
+    <div class="rclub"><span class="crest" id="rCrest"></span><span id="rName"></span></div>
+    <div class="rbody" id="rBody"></div>
+    <button class="rclose" id="rClose">סגירה ✕</button>
+  </div>
+</div>
+
+<div id="toast"><span id="toastTxt"></span></div>
+
+<script>
+"use strict";
+
+/* ── Hebrew club name map ── */
+const HE = {
+  'Arsenal':'ארסנל','Aston Villa':'אסטון וילה','Bournemouth':"בורנמות'",'Brentford':'ברנטפורד',
+  'Brighton & Hove Albion':'ברייטון','Chelsea':"צ'לסי",'Coventry City':'קוונטרי סיטי',
+  'Crystal Palace':'קריסטל פאלאס','Everton':'אברטון','Fulham':'פולהאם',
+  'Hull City':'האל סיטי','Ipswich Town':"איפסוויץ'",'Leeds United':'לידס יונייטד',
+  'Liverpool':'ליברפול','Manchester City':"מנצ'סטר סיטי",'Manchester United':"מנצ'סטר יונייטד",
+  'Newcastle United':'ניוקאסל יונייטד','Nottingham Forest':'נוטינגהם פורסט',
+  'Sunderland':'סאנדרלנד','Tottenham Hotspur':'טוטנהאם',
+  'Alavés':'אלאבס','Athletic Bilbao':'אתלטיק בילבאו','Atlético Madrid':'אטלטיקו מדריד',
+  'Barcelona':'ברצלונה','Celta Vigo':'סלטה ויגו','Elche':"אלצ'ה",'Espanyol':'אספניול',
+  'Getafe':'חטאפה','Girona':"ג'ירונה",'Levante':'לבנטה','Mallorca':'מיורקה',
+  'Osasuna':'אוסאסונה','Oviedo':'אובייאדו','Rayo Vallecano':'ראיו ואלקאנו',
+  'Real Betis':'ריאל בטיס','Real Madrid':'ריאל מדריד','Real Sociedad':'ריאל סוסיאדד',
+  'Sevilla':'סביליה','Valencia':'ולנסיה','Villarreal':'ווילרריאל',
+  'Atalanta':'אטלנטה','Bologna':'בולוניה','Cagliari':'קליארי','Como':'קומו',
+  'Cremonese':'קרמונזה','Fiorentina':'פיורנטינה','Genoa':"ג'נואה",
+  'Hellas Verona':'הלס ורונה','Inter Milan':'אינטר מילאן','Juventus':'יובנטוס',
+  'Lazio':'לציו','Lecce':"לצ'ה",'AC Milan':'מילאן','Napoli':'נאפולי','Parma':'פארמה',
+  'Pisa':'פיזה','Roma':'רומא','Sassuolo':'סאסואולו','Torino':'טורינו','Udinese':'אודינזה',
+  'FC Augsburg':'אאוגסבורג','Bayer Leverkusen':'לברקוזן','Bayern Munich':'בייארן מינכן',
+  'Borussia Dortmund':'בורוסיה דורטמונד','Borussia Mönchengladbach':"בורוסיה מ'גלדבאך",
+  'Eintracht Frankfurt':'איינטרכט פרנקפורט','SC Elversberg':'אלברסברג',
+  'SC Freiburg':'פרייבורג','Hamburger SV':'המבורגר','TSG Hoffenheim':'הופנהיים',
+  '1. FC Köln':'קלן','RB Leipzig':'לייפציג','Mainz 05':'מיינץ',
+  'SC Paderborn':'פאדרבורן','Schalke 04':'שאלקה','VfB Stuttgart':'שטוטגרט',
+  'Union Berlin':'אוניון ברלין','Werder Bremen':'ורדר ברמן',
+  "Angers":"אנז'ה",'Auxerre':'אוקסר','Brest':'ברסט','Le Havre':'לה אבר',
+  'Lens':'לאן','Lille':'ליל','Lorient':'לוריאן','Lyon':'ליון','Marseille':'מרסיי',
+  "Metz":"מץ'",'Monaco':'מונאקו','Nantes':'נאנט','Nice':'ניס','Paris FC':'פריז FC',
+  'Paris Saint-Germain':"פריז סן-ז'רמן",'Rennes':'רן','Strasbourg':'שטרסבורג','Toulouse':'טולוז',
+  'Aldosivi':'אלדוסיבי','Argentinos Juniors':"ארגנטינוס ג'וניורס",
+  'Atlético Tucumán':'אטלטיקו טוקומן','Banfield':'בנפילד','Barracas Central':'בראקאס סנטראל',
+  'Belgrano':'בלגרנו','Boca Juniors':"בוקה ג'וניורס",'Central Córdoba (SdE)':'סנטראל קורדובה',
+  'Defensa y Justicia':'דפנסה י חוסטיסיה','Deportivo Riestra':'ריסטרה',
+  'Estudiantes (LP)':'אסטודיאנטס','Estudiantes (RC)':'אסטודיאנטס ריו קוארטו',
+  'Gimnasia y Esgrima (LP)':'חימנאסיה','Gimnasia y Esgrima (M)':'חימנאסיה מנדוסה',
+  'Huracán':'אורקאן','Independiente':'אינדפנדיינטה',
+  'Independiente Rivadavia':'אינדפנדיינטה ריבדאביה','Instituto':'אינסטיטוטו',
+  'Lanús':'לאנוס',"Newell's Old Boys":'ניוולס אולד בויז','Platense':'פלטנסה',
+  'Racing':'ראסינג','River Plate':'ריבר פלייט','Rosario Central':'רוסאריו סנטראל',
+  'San Lorenzo':'סן לורנסו','Sarmiento (J)':'סרמיינטו','Talleres (C)':'טאיירס',
+  'Tigre':'טיגרה','Unión':'אוניון','Vélez Sarsfield':'בלז סרספילד',
+  'Atlético Mineiro':'אטלטיקו מינירו','Athletico Paranaense':'אטלטיקו פרנאנסה',
+  'Bahia':'באהיה','Botafogo':'בוטאפוגו','Chapecoense':'שאפקואנסה',
+  'Corinthians':'קורינתיאנס','Coritiba':'קוריטיבה','Cruzeiro':'קרוזיירו',
+  'Flamengo':'פלמנגו','Fluminense':'פלומינסה','Grêmio':'גרמיו',
+  'Internacional':'אינטרנסיונאל','Mirassol':'מירסול','Palmeiras':'פלמיירס',
+  'Red Bull Bragantino':'ברגנטינו','Remo':'רמו','Santos':'סנטוס',
+  'São Paulo':'סאו פאולו','Vasco da Gama':'ואסקו דה גאמה','Vitória':'ויטוריה',
+};
+function cname(c){ return HE[c.club] || c.club; }
+
+/* ── DATA ── */
+const DATA = [
+  {"country":"ישראל","flag":"https://flagcdn.com/w40/il.png","iso":"il","clubs":[
+    {"club":"בית״ר ירושלים","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/6/61/Beitar_Jerusalem.png/120px-Beitar_Jerusalem.png","p":"#FFD200","s":"#111111"},
+    {"club":"בני סכנין","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/6/63/Bnei_Sakhnin_FC.svg/120px-Bnei_Sakhnin_FC.svg.png","p":"#00843D","s":"#003DA5"},
+    {"club":"מ.ס. אשדוד","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/7/72/FC_Ashdod.svg/120px-FC_Ashdod.svg.png","p":"#00843D","s":"#003DA5"},
+    {"club":"הפועל באר שבע","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/8/85/Logo-hapoel-positive.svg/120px-Logo-hapoel-positive.svg.png","p":"#00843D","s":"#003DA5"},
+    {"club":"הפועל חיפה","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/e/e4/Hapoel_Haifa_New_Logo.png/120px-Hapoel_Haifa_New_Logo.png","p":"#00843D","s":"#003DA5"},
+    {"club":"הפועל ירושלים","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/5/5d/FC_Hapoel_Jerusalem_2021.png/120px-FC_Hapoel_Jerusalem_2021.png","p":"#00843D","s":"#003DA5"},
+    {"club":"הפועל פתח תקווה","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/1/1f/Hapoelpt.svg/120px-Hapoelpt.svg.png","p":"#00843D","s":"#003DA5"},
+    {"club":"הפועל תל אביב","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/a/ac/Hapoel_Tel_Aviv_F.C.png/120px-Hapoel_Tel_Aviv_F.C.png","p":"#C8102E","s":"#ffffff"},
+    {"club":"עירוני טבריה","crest":null,"p":"#00843D","s":"#003DA5"},
+    {"club":"הפועל עירוני קריית שמונה","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/d/d1/Hapoel_Ironi_Kiryat_Shmona_badge.png/120px-Hapoel_Ironi_Kiryat_Shmona_badge.png","p":"#00843D","s":"#003DA5"},
+    {"club":"מכבי בני רעינה","crest":null,"p":"#00843D","s":"#003DA5"},
+    {"club":"מכבי חיפה","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/1/15/Maccabi_Haifa_FC_Logo_2023.png/120px-Maccabi_Haifa_FC_Logo_2023.png","p":"#00843D","s":"#ffffff"},
+    {"club":"מכבי נתניה","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Macca.webp/120px-Macca.webp.png","p":"#00843D","s":"#003DA5"},
+    {"club":"מכבי תל אביב","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/e/e9/Maccabi_Tel_Aviv.png/120px-Maccabi_Tel_Aviv.png","p":"#FFE500","s":"#003DA5"}
+  ]},
+  {"country":"אנגליה","flag":"https://flagcdn.com/w40/gb-eng.png","iso":"gb-eng","clubs":[
+    {"club":"Arsenal","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/5/53/Arsenal_FC.svg/120px-Arsenal_FC.svg.png","p":"#EF0107","s":"#ffffff"},
+    {"club":"Aston Villa","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Aston_Villa_FC_new_crest.svg/120px-Aston_Villa_FC_new_crest.svg.png","p":"#95BFE5","s":"#670E36"},
+    {"club":"Bournemouth","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/e/e5/AFC_Bournemouth_%282013%29.svg/120px-AFC_Bournemouth_%282013%29.svg.png","p":"#C8102E","s":"#000000"},
+    {"club":"Brentford","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/2/2a/Brentford_FC_crest.svg/120px-Brentford_FC_crest.svg.png","p":"#C8102E","s":"#ffffff"},
+    {"club":"Brighton & Hove Albion","crest":null,"p":"#0057B8","s":"#ffffff"},
+    {"club":"Chelsea","crest":null,"p":"#034694","s":"#ffffff"},
+    {"club":"Coventry City","crest":null,"p":"#59CBFF","s":"#ffffff"},
+    {"club":"Crystal Palace","crest":null,"p":"#1B458F","s":"#C4122E"},
+    {"club":"Everton","crest":null,"p":"#003399","s":"#ffffff"},
+    {"club":"Fulham","crest":null,"p":"#CC0000","s":"#ffffff"},
+    {"club":"Hull City","crest":null,"p":"#F5A12D","s":"#000000"},
+    {"club":"Ipswich Town","crest":null,"p":"#0044A8","s":"#ffffff"},
+    {"club":"Leeds United","crest":null,"p":"#FFCD00","s":"#1D428A"},
+    {"club":"Liverpool","crest":null,"p":"#C8102E","s":"#F6EB61"},
+    {"club":"Manchester City","crest":null,"p":"#6CABDD","s":"#ffffff"},
+    {"club":"Manchester United","crest":null,"p":"#DA291C","s":"#FBE122"},
+    {"club":"Newcastle United","crest":null,"p":"#241F20","s":"#ffffff"},
+    {"club":"Nottingham Forest","crest":null,"p":"#C8102E","s":"#ffffff"},
+    {"club":"Sunderland","crest":null,"p":"#C8102E","s":"#ffffff"},
+    {"club":"Tottenham Hotspur","crest":null,"p":"#132257","s":"#ffffff"}
+  ]},
+  {"country":"ספרד","flag":"https://flagcdn.com/w40/es.png","iso":"es","clubs":[
+    {"club":"Alavés","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/f/f8/Deportivo_Alaves_logo_%282020%29.svg/120px-Deportivo_Alaves_logo_%282020%29.svg.png","p":"#1F5CA0","s":"#ffffff"},
+    {"club":"Athletic Bilbao","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/9/98/Club_Athletic_Bilbao_logo.svg/120px-Club_Athletic_Bilbao_logo.svg.png","p":"#C8102E","s":"#ffffff"},
+    {"club":"Atlético Madrid","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/f/f9/Atletico_Madrid_Logo_2024.svg/120px-Atletico_Madrid_Logo_2024.svg.png","p":"#CC2229","s":"#ffffff"},
+    {"club":"Barcelona","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/4/47/FC_Barcelona_%28crest%29.svg/120px-FC_Barcelona_%28crest%29.svg.png","p":"#A50044","s":"#004D98"},
+    {"club":"Celta Vigo","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/1/12/RC_Celta_de_Vigo_logo.svg/120px-RC_Celta_de_Vigo_logo.svg.png","p":"#78C5E7","s":"#ffffff"},
+    {"club":"Elche","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/a/a7/Elche_CF_logo.svg/120px-Elche_CF_logo.svg.png","p":"#00843D","s":"#ffffff"},
+    {"club":"Espanyol","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/9/92/RCD_Espanyol_crest.svg/120px-RCD_Espanyol_crest.svg.png","p":"#0070B8","s":"#ffffff"},
+    {"club":"Getafe","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/4/46/Getafe_logo.svg/120px-Getafe_logo.svg.png","p":"#0F4C97","s":"#ffffff"},
+    {"club":"Girona","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/f/f7/Girona_FC_Logo.svg/120px-Girona_FC_Logo.svg.png","p":"#CC2229","s":"#ffffff"},
+    {"club":"Levante","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/7/7b/Levante_Uni%C3%B3n_Deportiva%2C_S.A.D._logo.svg/120px-Levante_Uni%C3%B3n_Deportiva%2C_S.A.D._logo.svg.png","p":"#0070B8","s":"#CC2229"},
+    {"club":"Mallorca","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/e/e0/Rcd_mallorca.svg/120px-Rcd_mallorca.svg.png","p":"#CC2229","s":"#000000"},
+    {"club":"Osasuna","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/3/38/CA_Osasuna_2024_crest.svg/120px-CA_Osasuna_2024_crest.svg.png","p":"#CC2229","s":"#000000"},
+    {"club":"Oviedo","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/6/6e/Real_Oviedo_logo.svg/120px-Real_Oviedo_logo.svg.png","p":"#0070B8","s":"#ffffff"},
+    {"club":"Rayo Vallecano","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/d/d8/Rayo_Vallecano_logo.svg/120px-Rayo_Vallecano_logo.svg.png","p":"#CC2229","s":"#ffffff"},
+    {"club":"Real Betis","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/1/13/Real_betis_logo.svg/120px-Real_betis_logo.svg.png","p":"#00843D","s":"#ffffff"},
+    {"club":"Real Madrid","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/5/56/Real_Madrid_CF.svg/120px-Real_Madrid_CF.svg.png","p":"#FFFFFF","s":"#FEBE10"},
+    {"club":"Real Sociedad","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/f/f1/Real_Sociedad_logo.svg/120px-Real_Sociedad_logo.svg.png","p":"#0F4C97","s":"#ffffff"},
+    {"club":"Sevilla","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/3/3b/Sevilla_FC_logo.svg/120px-Sevilla_FC_logo.svg.png","p":"#D2122E","s":"#ffffff"},
+    {"club":"Valencia","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/c/ce/Valenciacf.svg/120px-Valenciacf.svg.png","p":"#F7A500","s":"#000000"},
+    {"club":"Villarreal","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/b/b9/Villarreal_CF_logo-en.svg/120px-Villarreal_CF_logo-en.svg.png","p":"#FFD700","s":"#004B91"}
+  ]},
+  {"country":"איטליה","flag":"https://flagcdn.com/w40/it.png","iso":"it","clubs":[
+    {"club":"Atalanta","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Atalanta_BC_new_logo.svg/120px-Atalanta_BC_new_logo.svg.png","p":"#1C4A9F","s":"#000000"},
+    {"club":"Bologna","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Bologna_F.C._1909_logo.svg/120px-Bologna_F.C._1909_logo.svg.png","p":"#CC2229","s":"#0066B3"},
+    {"club":"Cagliari","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/6/61/Cagliari_Calcio_1920.svg/120px-Cagliari_Calcio_1920.svg.png","p":"#CC2229","s":"#0066B3"},
+    {"club":"Como","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Calcio_Como_-_logo_%28Italy%2C_2019-%29.svg/120px-Calcio_Como_-_logo_%28Italy%2C_2019-%29.svg.png","p":"#0066B3","s":"#ffffff"},
+    {"club":"Cremonese","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/e/e1/US_Cremonese_logo.svg/120px-US_Cremonese_logo.svg.png","p":"#CC2229","s":"#FFD700"},
+    {"club":"Fiorentina","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/ACF_Fiorentina_-_logo_%28Italy%2C_2022%29.svg/120px-ACF_Fiorentina_-_logo_%28Italy%2C_2022%29.svg.png","p":"#6B2FA0","s":"#ffffff"},
+    {"club":"Genoa","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/2/2c/Genoa_CFC_crest.svg/120px-Genoa_CFC_crest.svg.png","p":"#CC2229","s":"#003DA5"},
+    {"club":"Hellas Verona","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/9/92/Hellas_Verona_FC_logo_%282020%29.svg/120px-Hellas_Verona_FC_logo_%282020%29.svg.png","p":"#1C4A9F","s":"#FFD700"},
+    {"club":"Inter Milan","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/FC_Internazionale_Milano_2021.svg/120px-FC_Internazionale_Milano_2021.svg.png","p":"#010E80","s":"#000000"},
+    {"club":"Juventus","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Juventus_FC_-_logo_black_%28Italy%2C_2020%29.svg/120px-Juventus_FC_-_logo_black_%28Italy%2C_2020%29.svg.png","p":"#F2F2F2","s":"#1a1a1a"},
+    {"club":"Lazio","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/c/ce/S.S._Lazio_badge.svg/120px-S.S._Lazio_badge.svg.png","p":"#87CEEB","s":"#ffffff"},
+    {"club":"Lecce","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/2/23/US_Lecce_crest.svg/120px-US_Lecce_crest.svg.png","p":"#CC2229","s":"#FFD700"},
+    {"club":"AC Milan","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Logo_of_AC_Milan.svg/120px-Logo_of_AC_Milan.svg.png","p":"#FB090B","s":"#000000"},
+    {"club":"Napoli","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/SSC_Napoli_2025_%28white_and_azure%29.svg/120px-SSC_Napoli_2025_%28white_and_azure%29.svg.png","p":"#0068A8","s":"#ffffff"},
+    {"club":"Parma","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Logo_Parma_Calcio_1913_%28adozione_2016%29.svg/120px-Logo_Parma_Calcio_1913_%28adozione_2016%29.svg.png","p":"#FFD700","s":"#003DA5"},
+    {"club":"Pisa","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/6/6b/Pisa_SC_crest.svg/120px-Pisa_SC_crest.svg.png","p":"#003DA5","s":"#000000"},
+    {"club":"Roma","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/f/f7/AS_Roma_logo_%282017%29.svg/120px-AS_Roma_logo_%282017%29.svg.png","p":"#CC2229","s":"#FFD700"},
+    {"club":"Sassuolo","crest":null,"p":"#00843D","s":"#000000"},
+    {"club":"Torino","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/2/2e/Torino_FC_Logo.svg/120px-Torino_FC_Logo.svg.png","p":"#8B1A1A","s":"#ffffff"},
+    {"club":"Udinese","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/c/ce/Udinese_Calcio_logo.svg/120px-Udinese_Calcio_logo.svg.png","p":"#1a1a1a","s":"#ffffff"}
+  ]},
+  {"country":"גרמניה","flag":"https://flagcdn.com/w40/de.png","iso":"de","clubs":[
+    {"club":"FC Augsburg","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/c/c5/FC_Augsburg_logo.svg/120px-FC_Augsburg_logo.svg.png","p":"#DC052D","s":"#FDE100"},
+    {"club":"Bayer Leverkusen","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/5/59/Bayer_04_Leverkusen_logo.svg/120px-Bayer_04_Leverkusen_logo.svg.png","p":"#DC052D","s":"#000000"},
+    {"club":"Bayern Munich","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/FC_Bayern_M%C3%BCnchen_logo_%282024%29.svg/120px-FC_Bayern_M%C3%BCnchen_logo_%282024%29.svg.png","p":"#DC052D","s":"#ffffff"},
+    {"club":"Borussia Dortmund","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Borussia_Dortmund_logo.svg/120px-Borussia_Dortmund_logo.svg.png","p":"#FDE100","s":"#000000"},
+    {"club":"Borussia Mönchengladbach","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Borussia_M%C3%B6nchengladbach_logo.svg/120px-Borussia_M%C3%B6nchengladbach_logo.svg.png","p":"#1C4A9F","s":"#ffffff"},
+    {"club":"Eintracht Frankfurt","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/7/7e/Eintracht_Frankfurt_crest.svg/120px-Eintracht_Frankfurt_crest.svg.png","p":"#E2001A","s":"#000000"},
+    {"club":"SC Elversberg","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/SV_Elversberg_Logo_2021.svg/120px-SV_Elversberg_Logo_2021.svg.png","p":"#1C4A9F","s":"#FFD700"},
+    {"club":"SC Freiburg","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/6/6d/SC_Freiburg_logo.svg/120px-SC_Freiburg_logo.svg.png","p":"#CC0000","s":"#000000"},
+    {"club":"Hamburger SV","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Hamburger_SV_logo.svg/120px-Hamburger_SV_logo.svg.png","p":"#003DA5","s":"#ffffff"},
+    {"club":"TSG Hoffenheim","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Logo_TSG_Hoffenheim.svg/120px-Logo_TSG_Hoffenheim.svg.png","p":"#1564AA","s":"#ffffff"},
+    {"club":"1. FC Köln","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/1._FC_Koeln_Logo_2014%E2%80%93.svg/120px-1._FC_Koeln_Logo_2014%E2%80%93.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"RB Leipzig","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/0/04/RB_Leipzig_2014_logo.svg/120px-RB_Leipzig_2014_logo.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"Mainz 05","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/1._FSV_Mainz_05_logo.svg/120px-1._FSV_Mainz_05_logo.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"SC Paderborn","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/b/b3/SC_Paderborn_07_logo.svg/120px-SC_Paderborn_07_logo.svg.png","p":"#003DA5","s":"#ffffff"},
+    {"club":"Schalke 04","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/FC_Schalke_04_Logo.svg/120px-FC_Schalke_04_Logo.svg.png","p":"#003DA5","s":"#ffffff"},
+    {"club":"VfB Stuttgart","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/VfB_Stuttgart_1893_Logo.svg/120px-VfB_Stuttgart_1893_Logo.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"Union Berlin","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/1._FC_Union_Berlin_Logo.svg/120px-1._FC_Union_Berlin_Logo.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"Werder Bremen","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/b/be/SV-Werder-Bremen-Logo.svg/120px-SV-Werder-Bremen-Logo.svg.png","p":"#1DA563","s":"#ffffff"}
+  ]},
+  {"country":"צרפת","flag":"https://flagcdn.com/w40/fr.png","iso":"fr","clubs":[
+    {"club":"Angers","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Angers_Sporting_Club_de_l%27Ouest_logo.svg/120px-Angers_Sporting_Club_de_l%27Ouest_logo.svg.png","p":"#1C4A9F","s":"#000000"},
+    {"club":"Auxerre","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/5/51/AJAuxerreLogo.svg/120px-AJAuxerreLogo.svg.png","p":"#003DA5","s":"#ffffff"},
+    {"club":"Brest","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/0/05/Stade_Brestois_29_logo.svg/120px-Stade_Brestois_29_logo.svg.png","p":"#CC2229","s":"#ffffff"},
+    {"club":"Le Havre","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/f/fc/Le_Havre_AC_logo.svg/120px-Le_Havre_AC_logo.svg.png","p":"#87CEEB","s":"#003DA5"},
+    {"club":"Lens","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/c/cc/RC_Lens_logo.svg/120px-RC_Lens_logo.svg.png","p":"#F7A500","s":"#CC0000"},
+    {"club":"Lille","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/3/3f/Lille_OSC_2018_logo.svg/120px-Lille_OSC_2018_logo.svg.png","p":"#CC0000","s":"#003DA5"},
+    {"club":"Lorient","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/4/4c/FC_Lorient_logo.svg/120px-FC_Lorient_logo.svg.png","p":"#F7A500","s":"#1C4A9F"},
+    {"club":"Lyon","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/1/1c/Olympique_Lyonnais_logo.svg/120px-Olympique_Lyonnais_logo.svg.png","p":"#003DA5","s":"#CC0000"},
+    {"club":"Marseille","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Olympique_de_Marseille_2026_logo.svg/120px-Olympique_de_Marseille_2026_logo.svg.png","p":"#0068A8","s":"#ffffff"},
+    {"club":"Metz","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/FC_Metz_2021_Logo.svg/120px-FC_Metz_2021_Logo.svg.png","p":"#8B1A1A","s":"#FFD700"},
+    {"club":"Monaco","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/c/cf/LogoASMonacoFC2021.svg/120px-LogoASMonacoFC2021.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"Nantes","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Logo_FC_Nantes_%28avec_fond%29_-_2019.svg/120px-Logo_FC_Nantes_%28avec_fond%29_-_2019.svg.png","p":"#F7A500","s":"#1C4A9F"},
+    {"club":"Nice","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/2/2e/OGC_Nice_logo.svg/120px-OGC_Nice_logo.svg.png","p":"#CC0000","s":"#000000"},
+    {"club":"Paris FC","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/9/9f/Paris_FC_logo.svg/120px-Paris_FC_logo.svg.png","p":"#003DA5","s":"#CC0000"},
+    {"club":"Paris Saint-Germain","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/a/a7/Paris_Saint-Germain_F.C..svg/120px-Paris_Saint-Germain_F.C..svg.png","p":"#003DA5","s":"#CC0000"},
+    {"club":"Rennes","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/9/9e/Stade_Rennais_FC.svg/120px-Stade_Rennais_FC.svg.png","p":"#CC0000","s":"#000000"},
+    {"club":"Strasbourg","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/8/80/Racing_Club_de_Strasbourg_logo.svg/120px-Racing_Club_de_Strasbourg_logo.svg.png","p":"#003DA5","s":"#ffffff"},
+    {"club":"Toulouse","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/6/63/Toulouse_FC_2018_logo.svg/120px-Toulouse_FC_2018_logo.svg.png","p":"#6B2FA0","s":"#ffffff"}
+  ]},
+  {"country":"ארגנטינה","flag":"https://flagcdn.com/w40/ar.png","iso":"ar","clubs":[
+    {"club":"Aldosivi","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/2/2a/Aldosivi_logo.svg/120px-Aldosivi_logo.svg.png","p":"#1C8A3E","s":"#ffffff"},
+    {"club":"Argentinos Juniors","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Escudo_de_la_Asociaci%C3%B3n_Atl%C3%A9tica_Argentinos_Juniors.svg/120px-Escudo_de_la_Asociaci%C3%B3n_Atl%C3%A9tica_Argentinos_Juniors.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"Atlético Tucumán","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Atletico_tucuman_nuevo2.svg/120px-Atletico_tucuman_nuevo2.svg.png","p":"#003DA5","s":"#ffffff"},
+    {"club":"Banfield","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/CA_Banfield_%282014%29.svg/120px-CA_Banfield_%282014%29.svg.png","p":"#1C8A3E","s":"#ffffff"},
+    {"club":"Barracas Central","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Barracas_central_logo.svg/120px-Barracas_central_logo.svg.png","p":"#CC0000","s":"#FFD700"},
+    {"club":"Belgrano","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Escudo_Oficial_del_Club_Atl%C3%A9tico_Belgrano.png/120px-Escudo_Oficial_del_Club_Atl%C3%A9tico_Belgrano.png","p":"#003DA5","s":"#FFD700"},
+    {"club":"Boca Juniors","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Boca_Juniors_logo18.svg/120px-Boca_Juniors_logo18.svg.png","p":"#003F87","s":"#FFD700"},
+    {"club":"Central Córdoba (SdE)","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Central_Cordoba_SdE_crest_%282025%29.svg/120px-Central_Cordoba_SdE_crest_%282025%29.svg.png","p":"#003DA5","s":"#CC0000"},
+    {"club":"Defensa y Justicia","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Escudo_del_Club_Social_y_Deportivo_Defensa_y_Justicia.svg/120px-Escudo_del_Club_Social_y_Deportivo_Defensa_y_Justicia.svg.png","p":"#FFD700","s":"#1C8A3E"},
+    {"club":"Deportivo Riestra","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Escudo_del_Club_Deportivo_Riestra.svg/120px-Escudo_del_Club_Deportivo_Riestra.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"Estudiantes (LP)","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Estudiantes_de_la_Plata_crest_%282025%29_cropped.svg/120px-Estudiantes_de_la_Plata_crest_%282025%29_cropped.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"Estudiantes (RC)","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Escudo_Asociacion_Atl%C3%A9tica_Estudiantes_de_R%C3%ADo_Cuarto.svg/120px-Escudo_Asociacion_Atl%C3%A9tica_Estudiantes_de_R%C3%ADo_Cuarto.svg.png","p":"#003DA5","s":"#CC0000"},
+    {"club":"Gimnasia y Esgrima (LP)","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/6/6d/Gimnasia_Esgrima_LP_logo.svg/120px-Gimnasia_Esgrima_LP_logo.svg.png","p":"#1C4A9F","s":"#ffffff"},
+    {"club":"Gimnasia y Esgrima (M)","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Escudo_Club_Gimnasia_y_Esgrima_Mendoza.svg/120px-Escudo_Club_Gimnasia_y_Esgrima_Mendoza.svg.png","p":"#1C4A9F","s":"#CC0000"},
+    {"club":"Huracán","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Emblema_oficial_del_Club_Atl%C3%A9tico_Hurac%C3%A1n.svg/120px-Emblema_oficial_del_Club_Atl%C3%A9tico_Hurac%C3%A1n.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"Independiente","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Escudo_del_Club_Atl%C3%A9tico_Independiente.svg/120px-Escudo_del_Club_Atl%C3%A9tico_Independiente.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"Independiente Rivadavia","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/Escudo_del_Club_Independiente_Rivadavia.svg/120px-Escudo_del_Club_Independiente_Rivadavia.svg.png","p":"#003DA5","s":"#ffffff"},
+    {"club":"Instituto","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Instituto_acc_cordoba_logo.svg/120px-Instituto_acc_cordoba_logo.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"Lanús","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Escudo_de_Lan%C3%BAs_%28sin_estrellas%29.svg/120px-Escudo_de_Lan%C3%BAs_%28sin_estrellas%29.svg.png","p":"#CC0000","s":"#FFD700"},
+    {"club":"Newell's Old Boys","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Escudo_del_Club_Atl%C3%A9tico_Newell%27s_Old_Boys_de_Rosario.svg/120px-Escudo_del_Club_Atl%C3%A9tico_Newell%27s_Old_Boys_de_Rosario.svg.png","p":"#CC0000","s":"#000000"},
+    {"club":"Platense","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Club_Alt%C3%A9tico_Platense_crest_%282025%29.svg/120px-Club_Alt%C3%A9tico_Platense_crest_%282025%29.svg.png","p":"#1C4A9F","s":"#ffffff"},
+    {"club":"Racing","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Escudo_de_Racing_Club_%282014%29.svg/120px-Escudo_de_Racing_Club_%282014%29.svg.png","p":"#87CEEB","s":"#ffffff"},
+    {"club":"River Plate","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Club_Atl%C3%A9tico_River_Plate_logo.svg/120px-Club_Atl%C3%A9tico_River_Plate_logo.svg.png","p":"#FFFFFF","s":"#E2231A"},
+    {"club":"Rosario Central","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/c/ce/Rosario_Central_logo.svg/120px-Rosario_Central_logo.svg.png","p":"#003DA5","s":"#FFD700"},
+    {"club":"San Lorenzo","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Sanlorenzo_almagro_logo2026.png/120px-Sanlorenzo_almagro_logo2026.png","p":"#003DA5","s":"#CC0000"},
+    {"club":"Sarmiento (J)","crest":null,"p":"#1C8A3E","s":"#ffffff"},
+    {"club":"Talleres (C)","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/Escudo_Talleres_2015.svg/120px-Escudo_Talleres_2015.svg.png","p":"#003DA5","s":"#ffffff"},
+    {"club":"Tigre","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Escudo_del_Club_Atl%C3%A9tico_Tigre_-_2019.svg/120px-Escudo_del_Club_Atl%C3%A9tico_Tigre_-_2019.svg.png","p":"#F7A500","s":"#003DA5"},
+    {"club":"Unión","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Escudo_club_Atl%C3%A9tico_Uni%C3%B3n_de_santa_fe.svg/120px-Escudo_club_Atl%C3%A9tico_Uni%C3%B3n_de_santa_fe.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"Vélez Sarsfield","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Escudo_del_Club_Atl%C3%A9tico_V%C3%A9lez_Sarsfield.svg/120px-Escudo_del_Club_Atl%C3%A9tico_V%C3%A9lez_Sarsfield.svg.png","p":"#003DA5","s":"#FFD700"}
+  ]},
+  {"country":"ברזיל","flag":"https://flagcdn.com/w40/br.png","iso":"br","clubs":[
+    {"club":"Atlético Mineiro","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Logo_of_Clube_Atl%C3%A9tico_Mineiro.svg/120px-Logo_of_Clube_Atl%C3%A9tico_Mineiro.svg.png","p":"#1a1a1a","s":"ffffff"},
+    {"club":"Athletico Paranaense","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Athletico_Paranaense_%28Logo_2019%29.svg/120px-Athletico_Paranaense_%28Logo_2019%29.svg.png","p":"#CC0000","s":"#000000"},
+    {"club":"Bahia","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Logo_of_Esporte_Clube_Bahia_%282004%29.svg/120px-Logo_of_Esporte_Clube_Bahia_%282004%29.svg.png","p":"#003DA5","s":"#CC0000"},
+    {"club":"Botafogo","crest":null,"p":"#1a1a1a","s":"#ffffff"},
+    {"club":"Chapecoense","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Logo_Associa%C3%A7%C3%A3o_Chapecoense_de_Futebol.svg/120px-Logo_Associa%C3%A7%C3%A3o_Chapecoense_de_Futebol.svg.png","p":"#1C8A3E","s":"#003DA5"},
+    {"club":"Corinthians","crest":null,"p":"#1a1a1a","s":"#ffffff"},
+    {"club":"Coritiba","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Coritiba_Foot_Ball_Club_logo.svg/120px-Coritiba_Foot_Ball_Club_logo.svg.png","p":"#1C8A3E","s":"#ffffff"},
+    {"club":"Cruzeiro","crest":null,"p":"#003DA5","s":"#ffffff"},
+    {"club":"Flamengo","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/Clube_de_Regatas_do_Flamengo_logo.svg/120px-Clube_de_Regatas_do_Flamengo_logo.svg.png","p":"#E20E0E","s":"#1a1a1a"},
+    {"club":"Fluminense","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Fluminense_Football_Club.svg/120px-Fluminense_Football_Club.svg.png","p":"#8B1A1A","s":"#1C8A3E"},
+    {"club":"Grêmio","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Gremio_logo.svg/120px-Gremio_logo.svg.png","p":"#003DA5","s":"#1a1a1a"},
+    {"club":"Internacional","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Sport_Club_Internacional_logo.svg/120px-Sport_Club_Internacional_logo.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"Mirassol","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Mirassol_FC_logo.png/120px-Mirassol_FC_logo.png","p":"#FFD700","s":"#1a1a1a"},
+    {"club":"Palmeiras","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/SE_Palmeiras_2025_crest.png/120px-SE_Palmeiras_2025_crest.png","p":"#1C8A3E","s":"#ffffff"},
+    {"club":"Red Bull Bragantino","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/2/2e/Red_Bull_Bragantino_logo.svg/120px-Red_Bull_Bragantino_logo.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"Remo","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Clube_do_Remo.svg/120px-Clube_do_Remo.svg.png","p":"#003DA5","s":"#CC0000"},
+    {"club":"Santos","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Santos_Futebol_Clube_logo_%28with_stars_and_crown%29.png/120px-Santos_Futebol_Clube_logo_%28with_stars_and_crown%29.png","p":"#1a1a1a","s":"#ffffff"},
+    {"club":"São Paulo","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/S%C3%A3o_Paulo_Futebol_Clube_logo_%282022%29.svg/120px-S%C3%A3o_Paulo_Futebol_Clube_logo_%282022%29.svg.png","p":"#CC0000","s":"#1a1a1a"},
+    {"club":"Vasco da Gama","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/a/a5/Club_de_Regatas_Vasco_da_Gama_logo_%282021%29.svg/120px-Club_de_Regatas_Vasco_da_Gama_logo_%282021%29.svg.png","p":"#1a1a1a","s":"#ffffff"},
+    {"club":"Vitória","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Esporte_Clube_Vit%C3%B3ria_%282024%29.svg/120px-Esporte_Clube_Vit%C3%B3ria_%282024%29.svg.png","p":"#CC0000","s":"#1a1a1a"}
+  ]}
+];
+
+/* flat club registry */
+const CLUBS = {};
+DATA.forEach(co => co.clubs.forEach(c => {
+  c.id = co.country + '/' + c.club;
+  c.country = co.country;
+  c.flag = co.flag;
+  CLUBS[c.id] = c;
+}));
+
+/* seed letters */
+const SEED = [
+  ['ישראל/מכבי חיפה','אבא לקח אותי ליציע בפעם הראשונה כשהייתי בן שש. עכשיו אני לוקח את הבן שלי. תודה שאת המקום שאנחנו נפגשים בו.'],
+  ['ישראל/בית״ר ירושלים','גם כשבושתי בך, לא עזבתי. זה כנראה מה שנקרא אהבה.'],
+  ['ישראל/הפועל תל אביב','כל שבת אני מרגיש שייך למשהו גדול ממני. לא הרבה דברים נותנים לי את זה.'],
+  ['אנגליה/Liverpool','בכיתי כשחזרנו מ-0:3. לא בכיתי ככה הרבה זמן בשביל בן אדם.'],
+  ['אנגליה/Arsenal','אתה מאכזב אותי בדיוק כמו שאני מאכזב את עצמי, ובכל זאת אני נשאר.'],
+  ['ספרד/Real Madrid','בלילות שבהם אני לא מצליח לישון, אני חושב עליך. לא עליה.'],
+  ['ספרד/Barcelona','למדתי ממך מה זה נאמנות. חבל שלא תמיד הצלחתי ליישם את זה בבית.'],
+  ['איטליה/Juventus','שלושים שנה אני כותב לך, ואף פעם לא כתבתי לאמא שלי מכתב אחד.'],
+  ['איטליה/AC Milan','אתה הדבר היחיד שאבא ואני מסכימים עליו. זה מספיק כדי לאהוב אותך.'],
+  ['ארגנטינה/Boca Juniors','הצבעים שלך הם החלון שדרכו אני עוד מסתכל על סבא.'],
+  ['ארגנטינה/River Plate','אני יודע לדבר איתך על רגשות. עם אנשים פחות.'],
+  ['גרמניה/Bayern Munich','ניצחת אלף פעמים ועדיין אני מתרגש. הלוואי שהייתי יודע להתרגש ככה משגרה.'],
+  ['גרמניה/Borussia Dortmund','הקיר הצהוב הוא המשפחה שבחרתי כשהמשפחה האמיתית הייתה רחוקה.'],
+  ['צרפת/Paris Saint-Germain','שמתי את הסמל שלך מעל המיטה לפני שתליתי תמונה של מישהו שאני אוהב.'],
+  ['צרפת/Lille','אתה מלמד אותי כל שבוע שאפשר ליפול ולקום. אני עוד לא תרגמתי את זה לחיים שלי.'],
+  ['ברזיל/Flamengo','כשאני שר את ההמנון שלך אני בוכה. כשאומרים לי "אני אוהב אותך" אני שותק.'],
+  ['צרפת/Marseille','נסעתי שמונה שעות בשבילך. לאמא שלי לא נסעתי שעה.'],
+  ['ישראל/מכבי תל אביב','אני יודע בעל פה את כל ההרכב. את יום הנישואים שלי שכחתי.'],
+  ['אנגליה/Manchester City','אתה היציבות היחידה שהייתה לי בעשור האחרון.'],
+  ['ספרד/Atlético Madrid','אוהב אותך גם כשזה כואב. אולי בעיקר כשזה כואב.'],
+];
+
+const PEOPLE = [
+  ['בת זוג','בת הזוג שלי'],['אישה','אשתי'],['אבא','אבא'],['אמא','אמא'],
+  ['בן','הבן שלי'],['בת','הבת שלי'],['סבא','סבא'],['סבתא','סבתא'],['חבר','החבר שלי'],
+];
+
+const PROMPTS = [
+  'אני אוהב אותך כי...','גם כשאת מאכזבת אותי, אני נשאר...',
+  'אבא לקח אותי אליך בפעם הראשונה...','כל שבת אני מרגיש שייך למשהו גדול ממני...',
+  'בלילות שאני לא מצליח לישון, אני חושב עליך...','אתה הדבר היחיד ש...',
+  'כשאני שומע את ההמנון שלך, אני...','גם כשכולם כבר ויתרו, אתה...',
+  'אני לא יודע להסביר למה, אבל...','לפעמים אני שונא אותך, ובכל זאת...',
+  'הזכרונות הכי יפים שלי קשורים אליך...','אם הייתי יכול לומר לך דבר אחד...'
+];
+
+/* state */
+const S = { country:null, club:null, text:'', recipientLabel:null, recipientDisplay:null, letters:[], pendingMyIndex:-1 };
+SEED.forEach(([id,t]) => S.letters.push({clubId:id, text:t, len:t.length}));
+const reduceMotion = matchMedia('(prefers-reduced-motion:reduce)').matches;
+let soundOn = true;
+
+/* color helpers */
+function hex2rgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+function lum(h){try{const[r,g,b]=hex2rgb(h).map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*r+.7152*g+.0722*b}catch(e){return 0.5}}
+function applyTheme(club){
+  const r=document.documentElement.style;
+  r.setProperty('--cp',club.p);
+  r.setProperty('--cg',club.p);
+  r.setProperty('--oc',lum(club.p)>.5?'#1a1a24':'#ffffff');
+}
+
+/* ── DOM helpers ── */
+const $=s=>document.querySelector(s);
+const screens = {intro:$('#screen-intro'),entry:$('#screen-entry'),write:$('#screen-write'),reveal:$('#screen-reveal'),consent:$('#screen-consent')};
+
+function show(name){
+  Object.values(screens).forEach(s=>{s.classList.remove('active')});
+  $('#ui').classList.remove('gone');
+  $('#wallui').classList.remove('on');
+  if(name) screens[name].classList.add('active');
+}
+function showStadium(){
+  Object.values(screens).forEach(s=>s.classList.remove('active'));
+  $('#ui').classList.add('gone');
+  $('#wallui').classList.add('on');
+}
+
+/* ── STADIUM CANVAS ── */
+const Stadium = (function(){
+  const canvas = $('#stadium');
+  const ctx = canvas.getContext('2d');
+  let DPR=1, W=0, H=0;
+  let seats = [];
+  let hoverIdx = -1;
+  let animFrame = null;
+
+  function sw(){ return Math.max(4, Math.min(9, W/95)); }
+  function sh(){ return Math.max(3, Math.min(7, H/105)); }
+  const SG = 1;
+
+  function pitch(){
+    const pw = W*0.50, ph = H*0.50;
+    return {px:(W-pw)/2, py:(H-ph)/2, pw, ph};
+  }
+
+  function rr(ctx,x,y,w,h,r){
+    r=Math.min(r,w/2,h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+  }
+
+  function buildSeats(){
+    seats=[];
+    const {px,py,pw,ph}=pitch();
+    const ssw=sw(), ssh=sh(), step_w=ssw+SG, step_h=ssh+SG;
+    const M=6;
+    // North stand
+    const nTop=M+48, nBot=py-M;
+    const nRows=Math.max(1,Math.floor((nBot-nTop)/step_h));
+    const nLeft=M, nRight=W-M;
+    const nCols=Math.floor((nRight-nLeft)/step_w);
+    for(let r=0;r<nRows;r++) for(let c=0;c<nCols;c++)
+      seats.push({x:nLeft+c*step_w+ssw/2, y:nTop+r*step_h+ssh/2, li:-1, p:null, born:0});
+    // South stand
+    const sTop=py+ph+M, sBot=H-M-72;
+    const sRows=Math.max(1,Math.floor((sBot-sTop)/step_h));
+    for(let r=0;r<sRows;r++) for(let c=0;c<nCols;c++)
+      seats.push({x:nLeft+c*step_w+ssw/2, y:sTop+r*step_h+ssh/2, li:-1, p:null, born:0});
+    // West stand
+    const wLeft=M, wRight=px-M;
+    const wCols=Math.max(1,Math.floor((wRight-wLeft)/step_w));
+    const wRows=Math.floor(ph/step_h);
+    for(let c=0;c<wCols;c++) for(let r=0;r<wRows;r++)
+      seats.push({x:wLeft+c*step_w+ssw/2, y:py+r*step_h+ssh/2, li:-1, p:null, born:0});
+    // East stand
+    const eLeft=px+pw+M, eRight=W-M;
+    const eCols=Math.max(1,Math.floor((eRight-eLeft)/step_w));
+    for(let c=0;c<eCols;c++) for(let r=0;r<wRows;r++)
+      seats.push({x:eLeft+c*step_w+ssw/2, y:py+r*step_h+ssh/2, li:-1, p:null, born:0});
+    assign();
+  }
+
+  function assign(){
+    seats.forEach(s=>{s.li=-1;s.p=null;s.born=0;});
+    const map={};
+    S.letters.forEach((l,i)=>{(map[l.clubId]=map[l.clubId]||[]).push(i);});
+    const sorted=Object.keys(map).sort((a,b)=>map[b].length-map[a].length);
+    let ptr=0;
+    sorted.forEach(clubId=>{
+      const club=CLUBS[clubId]; if(!club) return;
+      map[clubId].forEach(li=>{
+        if(ptr<seats.length){
+          const s=seats[ptr++];
+          s.li=li; s.p=club.p; s.born=S.letters[li]._born||0;
+        }
+      });
+    });
+    updateLegend(sorted,map);
+  }
+
+  function updateLegend(sorted,map){
+    const el=$('#legend'); if(!el) return;
+    el.innerHTML='';
+    sorted.forEach(id=>{
+      const club=CLUBS[id]; if(!club) return;
+      const btn=document.createElement('button');
+      btn.className='lchip';
+      const sw_el=document.createElement('span'); sw_el.className='lswatch';
+      sw_el.style.background=club.p;
+      const nm=document.createElement('span'); nm.textContent=cname(club);
+      const ct=document.createElement('span'); ct.className='lcnt'; ct.textContent=map[id].length;
+      btn.append(sw_el,nm,ct);
+      btn.onclick=()=>focusSeat(id);
+      el.appendChild(btn);
+    });
+  }
+
+  function focusSeat(clubId){
+    const s=seats.find(s=>s.li>=0&&S.letters[s.li]&&S.letters[s.li].clubId===clubId);
+    if(s) toast('מוצא '+cname(CLUBS[clubId])+'…');
+  }
+
+  function drawPitch(){
+    const {px,py,pw,ph}=pitch();
+    // green field
+    ctx.fillStyle='#2a7d3a';
+    rr(ctx,px,py,pw,ph,4); ctx.fill();
+    // stripes
+    const ns=10, sw_s=pw/ns;
+    for(let i=0;i<ns;i++){
+      ctx.fillStyle=i%2===0?'rgba(255,255,255,.03)':'rgba(0,0,0,.06)';
+      ctx.fillRect(px+i*sw_s,py,sw_s,ph);
+    }
+    // white lines
+    ctx.strokeStyle='rgba(255,255,255,.85)';
+    ctx.lineWidth=Math.max(1,W*.0012);
+    ctx.strokeRect(px+2,py+2,pw-4,ph-4);
+    // halfway
+    ctx.beginPath(); ctx.moveTo(px,py+ph/2); ctx.lineTo(px+pw,py+ph/2); ctx.stroke();
+    // center circle
+    ctx.beginPath(); ctx.arc(px+pw/2,py+ph/2,ph*.14,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(px+pw/2,py+ph/2,2.5,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,.85)'; ctx.fill();
+    // penalty boxes
+    const pbw=pw*.56,pbh=ph*.18;
+    ctx.strokeRect(px+(pw-pbw)/2,py+2,pbw,pbh);
+    ctx.strokeRect(px+(pw-pbw)/2,py+ph-pbh-2,pbw,pbh);
+    const gbw=pw*.32,gbh=ph*.08;
+    ctx.strokeRect(px+(pw-gbw)/2,py+2,gbw,gbh);
+    ctx.strokeRect(px+(pw-gbw)/2,py+ph-gbh-2,gbw,gbh);
+    // corner arcs
+    const cr=ph*.028;
+    [[px+2,py+2,0,Math.PI/2],[px+pw-2,py+2,Math.PI/2,Math.PI],[px+2,py+ph-2,-Math.PI/2,0],[px+pw-2,py+ph-2,Math.PI,3*Math.PI/2]]
+      .forEach(([x,y,a,b])=>{ctx.beginPath();ctx.arc(x,y,cr,a,b);ctx.stroke();});
+    // goals
+    const gw=pw*.11,gh=ph*.022;
+    ctx.fillStyle='rgba(255,255,255,.25)';
+    ctx.fillRect(px+(pw-gw)/2,py-gh,gw,gh);
+    ctx.fillRect(px+(pw-gw)/2,py+ph,gw,gh);
+    // running track
+    ctx.strokeStyle='rgba(180,140,80,.35)';
+    ctx.lineWidth=Math.max(4,W*.006);
+    rr(ctx,px-ctx.lineWidth/2-6,py-ctx.lineWidth/2-6,pw+ctx.lineWidth+12,ph+ctx.lineWidth+12,10);
+    ctx.stroke();
+    ctx.lineWidth=1;
+  }
+
+  function easeOut(t){return 1-Math.pow(1-t,3);}
+
+  function frame(now){
+    animFrame=requestAnimationFrame(frame);
+    ctx.clearRect(0,0,W,H);
+    // bg
+    ctx.fillStyle='#09090f'; ctx.fillRect(0,0,W,H);
+    drawPitch();
+    const ssw=sw(),ssh=sh();
+    seats.forEach((s,i)=>{
+      const occupied=s.li>=0;
+      let color=occupied?s.p:'#2d2d3a';
+      let scale=1;
+      if(occupied&&s.born){
+        const age=(now-s.born)/700;
+        if(age<1) scale=easeOut(Math.max(0,age));
+      }
+      const hover=i===hoverIdx&&occupied;
+      ctx.save();
+      ctx.translate(s.x,s.y);
+      if(scale<1) ctx.scale(scale,scale);
+      if(hover){ctx.shadowColor=s.p;ctx.shadowBlur=12;}
+      ctx.fillStyle=color;
+      rr(ctx,-ssw/2,-ssh/2,ssw,ssh,1.5); ctx.fill();
+      ctx.restore();
+    });
+  }
+
+  function resize(){
+    DPR=Math.min(window.devicePixelRatio||1,2.5);
+    W=window.innerWidth; H=window.innerHeight;
+    canvas.width=W*DPR; canvas.height=H*DPR;
+    canvas.style.width=W+'px'; canvas.style.height=H+'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    buildSeats();
+  }
+
+  function onMove(cx,cy){
+    const ssw=sw(),ssh=sh(),th=Math.max(10,ssw*1.5);
+    let found=-1;
+    for(let i=0;i<seats.length;i++){
+      const s=seats[i];
+      if(s.li>=0&&Math.abs(cx-s.x)<=th&&Math.abs(cy-s.y)<=th){found=i;break;}
+    }
+    hoverIdx=found;
+    canvas.style.cursor=found>=0?'pointer':'default';
+  }
+
+  function onClick(cx,cy){
+    const ssw=sw(),th=Math.max(14,ssw*2);
+    let best=null,bd=th;
+    seats.forEach(s=>{
+      if(s.li<0) return;
+      const d=Math.hypot(cx-s.x,cy-s.y);
+      if(d<bd){bd=d;best=s;}
+    });
+    if(best) openReader(best);
+  }
+
+  canvas.addEventListener('mousemove',e=>{onMove(e.clientX,e.clientY);});
+  canvas.addEventListener('click',e=>{onClick(e.clientX,e.clientY);});
+  canvas.addEventListener('touchend',e=>{
+    e.preventDefault();
+    const t=e.changedTouches[0];
+    onClick(t.clientX,t.clientY);
+  },{passive:false});
+
+  function relayout(focusMine){
+    if(focusMine&&S.pendingMyIndex>=0) S.letters[S.pendingMyIndex]._born=performance.now();
+    buildSeats();
+  }
+
+  function init(){
+    resize();
+    let rt;
+    window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(resize,150);});
+    requestAnimationFrame(frame);
+  }
+
+  return {init,relayout,assign};
+})();
+
+/* ── reader ── */
+function crestEl(el,club){
+  if(club.crest) el.style.background=`url(${club.crest}) center/contain no-repeat #fff`;
+  else el.style.background=`linear-gradient(135deg,${club.p} 0 50%,${club.s} 50% 100%)`;
+}
+function openReader(seat){
+  const club=CLUBS[S.letters[seat.li].clubId];
+  if(!club) return;
+  crestEl($('#rCrest'),club);
+  $('#rName').textContent=cname(club)+' · '+club.country;
+  $('#rBody').textContent=S.letters[seat.li].text;
+  $('#reader').classList.add('on');
+}
+$('#rClose').onclick=()=>$('#reader').classList.remove('on');
+$('#reader').onclick=e=>{if(e.target.id==='reader')$('#reader').classList.remove('on');};
+
+/* ── entry ── */
+let activeCountry=null;
+function buildCountries(){
+  const g=$('#countries'); g.innerHTML='';
+  DATA.forEach(co=>{
+    const b=document.createElement('button'); b.className='pill';
+    const fl=document.createElement('img'); fl.className='flag'; fl.src=co.flag; fl.alt=''; fl.loading='lazy';
+    const tx=document.createElement('span'); tx.textContent=co.country;
+    b.append(fl,tx); b.onclick=()=>openCountry(co);
+    g.appendChild(b);
+  });
+}
+function renderClubs(list){
+  const g=$('#clubs'); g.innerHTML='';
+  list.forEach(c=>{
+    const b=document.createElement('button'); b.className='cpill';
+    const cr=document.createElement('span'); cr.className='crest'; crestEl(cr,c);
+    const nm=document.createElement('span'); nm.className='cpill-name'; nm.textContent=cname(c);
+    b.append(cr,nm); b.onclick=()=>chooseClub(c);
+    g.appendChild(b);
+  });
+  $('#clubCount').textContent=list.length+' קבוצות';
+}
+function openCountry(co){
+  activeCountry=co; S.country=co.country;
+  $('#step-country').style.display='none';
+  $('#step-club').style.display='flex';
+  $('#clubCountryLabel').textContent=co.country;
+  const fl=$('#clubFlag'); fl.src=co.flag; fl.alt=co.country;
+  $('#clubSearch').value='';
+  renderClubs(co.clubs);
+}
+$('#clubSearch').addEventListener('input',()=>{
+  if(!activeCountry) return;
+  const q=$('#clubSearch').value.trim().toLowerCase();
+  renderClubs(q?activeCountry.clubs.filter(c=>cname(c).toLowerCase().includes(q)||c.club.toLowerCase().includes(q)):activeCountry.clubs);
+});
+$('#backToCountry').onclick=()=>{
+  activeCountry=null;
+  $('#step-club').style.display='none';
+  $('#step-country').style.display='flex';
+};
+function chooseClub(c){
+  S.club=c; applyTheme(c);
+  setTimeout(goWrite,240);
+}
+
+/* ── write ── */
+function shuffle(a){const b=a.slice();for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+function renderSuggestions(){
+  const box=$('#suggestions'); box.innerHTML='';
+  shuffle(PROMPTS).slice(0,6).forEach(txt=>{
+    const btn=document.createElement('button'); btn.className='schip'; btn.textContent=txt;
+    btn.onclick=()=>{
+      const ta=$('#letterInput');
+      ta.value=ta.value.trim()?ta.value.trim()+' '+txt:txt;
+      box.querySelectorAll('.schip').forEach(c=>c.classList.remove('on'));
+      btn.classList.add('on'); ta.focus();
+    };
+    box.appendChild(btn);
+  });
+}
+function goWrite(){
+  show('write');
+  const ta=$('#letterInput'); ta.value=''; S.text='';
+  renderSuggestions();
+  setTimeout(()=>ta.focus(),500);
+}
+$('#sendLetter').onclick=()=>{
+  const t=$('#letterInput').value.trim();
+  if(t.length<2){
+    const pad=$('.pad');
+    pad.animate([{transform:'translateX(0)'},{transform:'translateX(-8px)'},{transform:'translateX(8px)'},{transform:'translateX(0)'}],{duration:300});
+    $('#letterInput').focus(); return;
+  }
+  S.text=t; goReveal();
+};
+
+/* ── reveal ── */
+function flashDim(on){$('#ui').style.background=on?'#000':'var(--bg)';}
+let actx=null;
+function crowdRoar(){
+  if(!soundOn) return 600;
+  try{
+    actx=actx||new(window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended') actx.resume();
+    const ctx2=actx,dur=2,now=ctx2.currentTime;
+    const buf=ctx2.createBuffer(1,Math.floor(ctx2.sampleRate*dur),ctx2.sampleRate);
+    const d=buf.getChannelData(0); let last=0;
+    for(let i=0;i<d.length;i++){const w=Math.random()*2-1;last=(last+.02*w)/1.02;d[i]=last*3.2;}
+    const src=ctx2.createBufferSource(); src.buffer=buf;
+    const bp=ctx2.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=620; bp.Q.value=0.6;
+    const g=ctx2.createGain();
+    g.gain.setValueAtTime(.0001,now);
+    g.gain.exponentialRampToValueAtTime(.42,now+1.35);
+    g.gain.linearRampToValueAtTime(.0001,now+1.6);
+    src.connect(bp); bp.connect(g); g.connect(ctx2.destination);
+    src.start(now); src.stop(now+1.7);
+    return 1650;
+  }catch(e){return 600;}
+}
+
+function goReveal(){
+  show('reveal');
+  $('#letterInput').blur();
+  const L=$('#revealLetter'); L.style.opacity='0';
+  $('#revAddr').textContent=cname(S.club); $('#revAddr').classList.remove('swap');
+  $('#revBody').textContent=S.text;
+  $('#revPrompt').classList.remove('show');
+  const pg=$('#people'); pg.classList.remove('show'); pg.innerHTML='';
+  const nw=$('#nameWrap'); nw.classList.remove('on');
+  $('#nameInput').value='';
+  $('#revCoda').classList.remove('show');
+  const tc=$('#toConsent'); tc.style.opacity='0'; tc.style.pointerEvents='none';
+  flashDim(true);
+  const cut=crowdRoar();
+  setTimeout(()=>{flashDim(false); L.style.opacity='1'; L.style.transition='opacity .6s'; },cut);
+  setTimeout(()=>{$('#revAddr').classList.add('swap');},cut+1500);
+  setTimeout(()=>{$('#revAddr').textContent=''; $('#revPrompt').classList.add('show');},cut+2100);
+  setTimeout(()=>{buildPeople(); pg.classList.add('show');},cut+2700);
+}
+
+function buildPeople(){
+  const g=$('#people'); g.innerHTML='';
+  PEOPLE.forEach(([label,disp])=>{
+    const b=document.createElement('button'); b.className='pbtn'; b.textContent=label;
+    b.onclick=()=>pickPerson(b,label,disp);
+    g.appendChild(b);
+  });
+}
+
+function pickPerson(btn,label,disp){
+  S.recipientLabel=label; S.recipientDisplay=disp;
+  document.querySelectorAll('.pbtn').forEach(b=>b.classList.remove('chosen'));
+  btn.classList.add('chosen');
+  const addr=$('#revAddr');
+  addr.classList.add('swap');
+  setTimeout(()=>{addr.textContent=disp; addr.classList.remove('swap');},350);
+  const body=$('#revBody'); body.innerHTML='';
+  const name=S.club.club;
+  if(S.text.includes(name)){
+    S.text.split(name).forEach((part,i,arr)=>{
+      body.appendChild(document.createTextNode(part));
+      if(i<arr.length-1){const sp=document.createElement('span');sp.className='swapped';sp.textContent=disp;body.appendChild(sp);}
+    });
+  } else { body.textContent=S.text; }
+  setTimeout(()=>$('#nameWrap').classList.add('on'),400);
+  setTimeout(()=>$('#revCoda').classList.add('show'),800);
+  setTimeout(()=>{const tc=$('#toConsent');tc.style.opacity='1';tc.style.pointerEvents='auto';},1300);
+}
+
+$('#toConsent').onclick=()=>goConsent();
+
+/* ── consent / whatsapp ── */
+function fullPersonLetter(){
+  const name=$('#nameInput').value.trim();
+  const disp=name||(S.recipientDisplay||'');
+  return 'אֶל '+(disp||S.recipientDisplay||'')+',\n\n'+S.text;
+}
+function goConsent(){ show('consent'); $('#phonePanel').classList.remove('on'); }
+
+$('#sendReal').onclick=()=>{
+  $('#phonePanel').classList.add('on');
+  setTimeout(()=>$('#phoneInput').focus(),100);
+};
+$('#sendWA').onclick=()=>{
+  let phone=$('#phoneInput').value.replace(/\D/g,'');
+  if(!phone){toast('נא להכניס מספר טלפון');return;}
+  if(phone.startsWith('0')&&phone.length===10) phone='972'+phone.slice(1);
+  const txt=fullPersonLetter();
+  window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(txt),'_blank');
+  toast('המכתב נשלח — הוא בידיים שלך.');
+  joinWall();
+};
+$('#notNow').onclick=()=>{toast('לא עכשיו. אבל המילים נשארות איתך.');joinWall();};
+
+function joinWall(){
+  S.letters.push({clubId:S.club.id,text:S.text,len:S.text.length});
+  S.pendingMyIndex=S.letters.length-1;
+  $('#ui').classList.add('gone');
+  setTimeout(()=>{showStadium();Stadium.relayout(true);},650);
+}
+
+/* ── add button ── */
+$('#addBtn').onclick=()=>{
+  S.country=null;S.club=null;S.text='';S.recipientLabel=null;S.recipientDisplay=null;S.pendingMyIndex=-1;
+  activeCountry=null; $('#clubSearch').value='';
+  document.documentElement.style.setProperty('--cp','#4A9EFF');
+  document.documentElement.style.setProperty('--cg','#4A9EFF');
+  document.documentElement.style.setProperty('--oc','#fff');
+  $('#step-club').style.display='none'; $('#step-country').style.display='flex';
+  show('entry');
+};
+
+/* ── sound ── */
+$('#sound').onclick=()=>{soundOn=!soundOn;$('#sound').textContent=soundOn?'♪':'♪̶';};
+
+/* ── toast ── */
+let toastT;
+function toast(msg){const e=$('#toastTxt');e.textContent=msg;e.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('on'),3600);}
+
+/* ── entrance animation ── */
+$('#enterBtn').onclick=()=>{
+  $('#ui').classList.add('gone');
+  setTimeout(()=>$('#gate').classList.add('open'),200);
+  setTimeout(()=>$('#wallui').classList.add('on'),1050);
+};
+
+/* ── boot ── */
+buildCountries();
+show('intro');
+Stadium.init();
+</script>
+</body>
+</html>
