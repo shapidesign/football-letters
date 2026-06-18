@@ -699,10 +699,9 @@ function clubColors(club){
 function seatColors(club){
   const{p,s}=clubColors(club);
   const dp=colorDist(p,PITCH_GREEN),ds=colorDist(s,PITCH_GREEN);
-  if(colorDist(p,s)>=55&&dp>=MIN_PITCH_DIST&&ds>=MIN_PITCH_DIST) return{a:p,b:s,dual:true};
-  if(dp<MIN_PITCH_DIST&&ds>=MIN_PITCH_DIST) return{a:s,b:p,dual:false};
-  if(ds<MIN_PITCH_DIST&&dp>=MIN_PITCH_DIST) return{a:p,b:s,dual:false};
-  return dp>=ds?{a:p,b:s,dual:false}:{a:s,b:p,dual:false};
+  if(dp<MIN_PITCH_DIST&&ds>=MIN_PITCH_DIST) return s;
+  if(ds<MIN_PITCH_DIST&&dp>=MIN_PITCH_DIST) return p;
+  return dp>=ds?p:s;
 }
 
 /* last 2 distinct club colors used in the sim */
@@ -875,8 +874,7 @@ const Stadium = (function(){
       map[clubId].forEach(li=>{
         if(ptr<seats.length){
           const s=seats[ptr++];
-          const sc=seatColors(club);
-          s.li=li; s.p=sc.a; s.s=sc.b; s.dual=sc.dual; s.born=S.letters[li]._born||0;
+          s.li=li; s.p=seatColors(club); s.born=S.letters[li]._born||0;
         }
       });
     });
@@ -922,7 +920,7 @@ const Stadium = (function(){
     rects.forEach(({x,y,w,h,item})=>{
       const club=CLUBS[item.id]; if(!club) return;
       const c=item.v;
-      const bg=seatColors(club).a;
+      const bg=seatColors(club);
       const dark=lum(bg)>.42;
       const tc=dark?'rgba(0,0,0,.88)':'rgba(255,255,255,.95)';
       const block=document.createElement('div');
@@ -1088,24 +1086,8 @@ const Stadium = (function(){
       ctx.translate(s.x,s.y);
       if(scale<1) ctx.scale(scale,scale);
       if(hover){ctx.shadowColor=s.p;ctx.shadowBlur=12;}
-      if(!occupied){
-        ctx.fillStyle='#2d2d3a';
-        rr(ctx,-ssw/2,-ssh/2,ssw,ssh,1.5); ctx.fill();
-      }else if(s._blink){
-        ctx.fillStyle='#ffffff';
-        rr(ctx,-ssw/2,-ssh/2,ssw,ssh,1.5); ctx.fill();
-      }else if(s.dual&&s.s){
-        ctx.fillStyle=s.s;
-        rr(ctx,-ssw/2,-ssh/2,ssw,ssh,1.5); ctx.fill();
-        ctx.save();
-        ctx.beginPath(); ctx.rect(-ssw/2,-ssh/2,ssw/2,ssh); ctx.clip();
-        ctx.fillStyle=s.p;
-        rr(ctx,-ssw/2,-ssh/2,ssw,ssh,1.5); ctx.fill();
-        ctx.restore();
-      }else{
-        ctx.fillStyle=s.p;
-        rr(ctx,-ssw/2,-ssh/2,ssw,ssh,1.5); ctx.fill();
-      }
+      ctx.fillStyle=occupied?(s._blink?'#ffffff':s.p):'#2d2d3a';
+      rr(ctx,-ssw/2,-ssh/2,ssw,ssh,1.5); ctx.fill();
       ctx.restore();
     });
     ctx.restore();
