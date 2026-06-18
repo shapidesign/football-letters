@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 <style>
 @font-face {
   font-family: 'Reisinger-Yonatan';
@@ -30,6 +32,11 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 
 /* canvas */
 #stadium{position:fixed;inset:0;width:100%;height:100%;display:block;background:#09090f}
+
+/* football match overlay (Phaser-rendered, synced to stadium camera) */
+#footballLayer{position:fixed;left:0;top:0;transform-origin:0 0;pointer-events:none;
+  z-index:1;will-change:transform}
+#footballLayer canvas{display:block;pointer-events:none}
 
 /* gate */
 #gate{position:fixed;inset:0;z-index:10;pointer-events:none}
@@ -277,6 +284,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 <body>
 
 <canvas id="stadium"></canvas>
+<div id="footballLayer"></div>
 <div id="gate"><div id="gate-l"></div><div id="gate-r"></div></div>
 <button id="backBtn" aria-label="חזרה">←</button>
 
@@ -298,8 +306,8 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 
   <section class="screen" id="screen-intro">
     <span class="intro-badge">אצטדיון האהבה</span>
-    <h1 class="intro-h">מכתב אהבה<br>לקבוצה שלך</h1>
-    <p class="intro-p">כל אוהד נושא בתוכו מילים שלא אמר.<br>כאן תאמר אותן — ואולי תגלה למי הן באמת מיועדות.</p>
+    <h1 class="intro-h">מכתב אהבה לקבוצה שלך</h1>
+    <p class="intro-p">התרגלת לבטא רגש על המגרש<br>עכשיו אפשר לבטא אותו גם במחוץ למגרש</p>
     <button class="intro-btn" id="enterBtn">כנס לאצטדיון</button>
   </section>
 
@@ -1124,7 +1132,7 @@ const Stadium = (function(){
     requestAnimationFrame(frame);
   }
 
-  return {init,relayout,assign,zoomToMySeat,getPitch:()=>pitch()};
+  return {init,relayout,assign,zoomToMySeat,getPitch:()=>pitch(),getCam:()=>cam};
 })();
 
 /* ── FootballSim ── */
@@ -1132,10 +1140,34 @@ const FootballSim = (function(){
   let players=[], pr=null;
   let teamColor0='#7B4FFF', teamColor1='#C8102E';
   let ball={x:0,y:0,holderIdx:0,inFlight:false,fromX:0,fromY:0,toX:0,toY:0,_startT:0,flightDur:800,targetIdx:-1,mode:'pass',shooterTeam:0};
-  let lastNow=0, kickoffTeam=0, lastTurnover=0;
+  let lastNow=0, kickoffTeam=0, lastTurnover=0, lastAttTeam=0;
 
   /* decelerating flight for ground passes / shots */
   function easeOutFlight(t){return 1-Math.pow(1-t,2);}
+
+  /* off-ball positioning: slide with the play toward the ball (team
+     compactness / support) plus a slow personal offset, so players move
+     as a unit instead of shuffling side-to-side in a fixed slot */
+  function setOffBallTarget(p, attTeam, now){
+    const{px,py,pw,ph}=pr;
+    const unit=Math.min(pw,ph);
+    const isAtt=p.team===attTeam;
+    const base=pitchCoord(p.team,p.ri,isAtt);
+    /* follow the carrier's body (smooth), not the raw ball, so the shape
+       doesn't twitch with the ball's per-frame stick-to-foot offset */
+    const refX=ball.holderIdx>=0?players[ball.holderIdx].x:ball.x;
+    const refY=ball.holderIdx>=0?players[ball.holderIdx].y:ball.y;
+    let bx=base.x, by=base.y;
+    if(pr.portrait){ bx+=(refX-base.x)*0.18; by+=(refY-base.y)*0.07; }
+    else          { by+=(refY-base.y)*0.18; bx+=(refX-base.x)*0.07; }
+    if(now>p.wanderAt){
+      const spr=unit*(isAtt?0.05:0.03);
+      p._ox=(Math.random()-0.5)*spr; p._oy=(Math.random()-0.5)*spr;
+      p.wanderAt=now+3000+Math.random()*3000;
+    }
+    p.tx=Math.max(px+6,Math.min(px+pw-6, bx+(p._ox||0)));
+    p.ty=Math.max(py+6,Math.min(py+ph-6, by+(p._oy||0)));
+  }
 
   /* speed-capped, frame-rate-independent step toward (p.tx,p.ty) */
   function moveToward(p,speed,dt){
@@ -1193,7 +1225,7 @@ const FootballSim = (function(){
 
   function mkP(team,ri){
     const{x,y}=pitchCoord(team,ri,false);
-    return{team,x,y,tx:x,ty:y,vx:0,vy:0,r:5,role:ROLE[ri],ri,
+    return{team,x,y,tx:x,ty:y,vx:0,vy:0,r:5,role:ROLE[ri],ri,_ox:0,_oy:0,
       hasBall:false,dribbleAt:0,passAt:0,shotAt:0,wanderAt:performance.now()+Math.random()*2500};
   }
 
@@ -1210,7 +1242,7 @@ const FootballSim = (function(){
           toX:cx,toY:cy,_startT:0,flightDur:800,targetIdx:-1,mode:'pass',shooterTeam:0};
     const t=performance.now();
     players[20].dribbleAt=t+900; players[20].passAt=t+2800; players[20].shotAt=t+3000;
-    lastNow=0; kickoffTeam=0; lastTurnover=0;
+    lastNow=0; kickoffTeam=0; lastTurnover=0; lastAttTeam=0;
   }
 
   function update(now,pitchRect){
@@ -1225,8 +1257,8 @@ const FootballSim = (function(){
     /* movement speeds in px/sec, scaled to pitch size — measured match tempo.
        carrier is a touch faster than the presser so attacks can progress
        instead of being hounded into endless backward recycling */
-    const SPD={gk:unit*0.15, defHold:unit*0.11, midOff:unit*0.18,
-               attRun:unit*0.23, carrier:unit*0.205, press:unit*0.185};
+    const SPD={gk:unit*0.15, defHold:unit*0.11, midOff:unit*0.185,
+               attRun:unit*0.23, carrier:unit*0.195, press:unit*0.18};
 
     const hi=ball.holderIdx;
     const holder=hi>=0?players[hi]:null;
@@ -1269,12 +1301,18 @@ const FootballSim = (function(){
         }
         ball.targetIdx=-1;
       }
-      /* off-ball players slowly recover their shape during the flight */
+      /* players keep their shape and shift with the ball during the flight */
       players.forEach(p=>{
-        const base=pitchCoord(p.team,p.ri,false);
-        p.tx=base.x; p.ty=base.y;
         const prevX=p.x, prevY=p.y;
-        moveToward(p, SPD.defHold, dt);
+        if(p.role==='GK'){
+          const base=pitchCoord(p.team,p.ri,false);
+          if(pr.portrait){ p.tx=Math.max(px+pw*0.34,Math.min(px+pw*0.66, ball.x)); p.ty=base.y; }
+          else           { p.ty=Math.max(py+ph*0.34,Math.min(py+ph*0.66, ball.y)); p.tx=base.x; }
+          moveToward(p, SPD.gk, dt);
+        }else{
+          setOffBallTarget(p, lastAttTeam, now);
+          moveToward(p, p.team===lastAttTeam?SPD.midOff:SPD.defHold, dt);
+        }
         p.vx=p.x-prevX; p.vy=p.y-prevY;
       });
       return;
@@ -1282,6 +1320,7 @@ const FootballSim = (function(){
 
     if(!holder) return;
     const attTeam=holder.team;
+    lastAttTeam=attTeam;
     const{idx:pressIdx,dist:pressDist}=nearestOpp(attTeam,holder.x,holder.y,true);
     const underPressure=pressDist<unit*.12;
     const goal=goalPos(attTeam);
@@ -1298,7 +1337,7 @@ const FootballSim = (function(){
       const frac=.25+Math.random()*.20;            /* shorter strides than before */
       const aimX=holder.x+(goal.x-holder.x)*frac;
       const aimY=holder.y+(goal.y-holder.y)*frac;
-      const spr=unit*.06;
+      const spr=unit*.03;
       holder.tx=Math.max(px+6,Math.min(px+pw-6,aimX+(Math.random()-.5)*spr));
       holder.ty=Math.max(py+6,Math.min(py+ph-6,aimY+(Math.random()-.5)*spr));
       holder.dribbleAt=now+900+Math.random()*600;
@@ -1313,23 +1352,15 @@ const FootballSim = (function(){
       }else if(!isAtt&&i===pressIdx&&p.role!=='GK'){
         p.tx=holder.x; p.ty=holder.y;
         moveToward(p, SPD.press, dt);
+      }else if(p.role==='GK'){
+        /* hold the goal line but slide across to cover the ball */
+        const base=pitchCoord(p.team,p.ri,false);
+        if(pr.portrait){ p.tx=Math.max(px+pw*0.34,Math.min(px+pw*0.66, ball.x)); p.ty=base.y; }
+        else { p.ty=Math.max(py+ph*0.34,Math.min(py+ph*0.66, ball.y)); p.tx=base.x; }
+        moveToward(p, SPD.gk, dt);
       }else{
-        const attack=isAtt;   /* push the whole team up while in possession */
-        const base=pitchCoord(p.team,p.ri,attack);
-        if(p.role==='GK'){
-          /* hold the goal line but slide across to cover the ball */
-          if(pr.portrait){ p.tx=Math.max(px+pw*0.34,Math.min(px+pw*0.66, ball.x)); p.ty=base.y; }
-          else { p.ty=Math.max(py+ph*0.34,Math.min(py+ph*0.66, ball.y)); p.tx=base.x; }
-          moveToward(p, SPD.gk, dt);
-        }else{
-          if(now>p.wanderAt){
-            const spr=unit*(isAtt?0.07:0.04);
-            p.tx=Math.max(px+6,Math.min(px+pw-6,base.x+(Math.random()-.5)*spr));
-            p.ty=Math.max(py+6,Math.min(py+ph-6,base.y+(Math.random()-.5)*spr));
-            p.wanderAt=now+2200+Math.random()*3200;
-          }
-          moveToward(p, isAtt?SPD.midOff:SPD.defHold, dt);
-        }
+        setOffBallTarget(p, attTeam, now);
+        moveToward(p, isAtt?SPD.midOff:SPD.defHold, dt);
       }
       p.x=Math.max(px+4,Math.min(px+pw-4,p.x));
       p.y=Math.max(py+4,Math.min(py+ph-4,p.y));
@@ -1382,7 +1413,7 @@ const FootballSim = (function(){
           const prog=rx*ax+ry*ay;                 /* forward progress along axis */
           const lateral=Math.abs(rx*(-ay)+ry*ax); /* perpendicular offset */
           const{dist:space}=nearestOpp(attTeam,p.x,p.y,false);
-          let score=prog*1.20 + space*0.28 - lateral*0.50;
+          let score=prog*1.20 + space*0.28 - lateral*0.62;
           if(prog<0) score-=underPressure?120:200;  /* strongly discourage backward passes */
           return{i,score};
         })
@@ -1423,7 +1454,7 @@ const FootballSim = (function(){
 
   /* ── restart from kickoff for the given team ── */
   function resetKickoff(team,now){
-    kickoffTeam=team; lastTurnover=now;
+    kickoffTeam=team; lastTurnover=now; lastAttTeam=team;
     players.forEach(p=>{
       const base=pitchCoord(p.team,p.ri,false);
       p.x=base.x; p.y=base.y; p.tx=base.x; p.ty=base.y; p.vx=0; p.vy=0;

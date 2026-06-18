@@ -1,0 +1,1178 @@
+[
+  {
+    "country": "ישראל",
+    "flag": "https://flagcdn.com/w40/il.png",
+    "iso": "il",
+    "clubs": [
+      {
+        "club": "בית״ר ירושלים",
+        "wiki": "Beitar_Jerusalem_F.C.",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/6/61/Beitar_Jerusalem.png/120px-Beitar_Jerusalem.png",
+        "p": "#FFD200",
+        "s": "#111111"
+      },
+      {
+        "club": "בני סכנין",
+        "wiki": "Bnei_Sakhnin_F.C.",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/6/63/Bnei_Sakhnin_FC.svg/120px-Bnei_Sakhnin_FC.svg.png",
+        "p": "#00843D",
+        "s": "#003DA5"
+      },
+      {
+        "club": "מ.ס. אשדוד",
+        "wiki": "F.C._Ashdod",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/7/72/FC_Ashdod.svg/120px-FC_Ashdod.svg.png",
+        "p": "#00843D",
+        "s": "#003DA5"
+      },
+      {
+        "club": "הפועל באר שבע",
+        "wiki": "Hapoel_Be%27er_Sheva_F.C.",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/8/85/Logo-hapoel-positive.svg/120px-Logo-hapoel-positive.svg.png",
+        "p": "#00843D",
+        "s": "#003DA5"
+      },
+      {
+        "club": "הפועל חיפה",
+        "wiki": "Hapoel_Haifa_F.C.",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/e/e4/Hapoel_Haifa_New_Logo.png/120px-Hapoel_Haifa_New_Logo.png",
+        "p": "#00843D",
+        "s": "#003DA5"
+      },
+      {
+        "club": "הפועל ירושלים",
+        "wiki": "Hapoel_Jerusalem_F.C.",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/5/5d/FC_Hapoel_Jerusalem_2021.png/120px-FC_Hapoel_Jerusalem_2021.png",
+        "p": "#00843D",
+        "s": "#003DA5"
+      },
+      {
+        "club": "הפועל פתח תקווה",
+        "wiki": "Hapoel_Petah_Tikva_F.C.",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/1/1f/Hapoelpt.svg/120px-Hapoelpt.svg.png",
+        "p": "#00843D",
+        "s": "#003DA5"
+      },
+      {
+        "club": "הפועל תל אביב",
+        "wiki": "Hapoel_Tel_Aviv_F.C.",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/a/ac/Hapoel_Tel_Aviv_F.C.png/120px-Hapoel_Tel_Aviv_F.C.png",
+        "p": "#C8102E",
+        "s": "#ffffff"
+      },
+      {
+        "club": "עירוני טבריה",
+        "wiki": "Ironi_Tiberias_F.C.",
+        "crest": null,
+        "p": "#00843D",
+        "s": "#003DA5"
+      },
+      {
+        "club": "הפועל עירוני קריית שמונה",
+        "wiki": "Hapoel_Ironi_Kiryat_Shmona_F.C.",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/d/d1/Hapoel_Ironi_Kiryat_Shmona_badge.png/120px-Hapoel_Ironi_Kiryat_Shmona_badge.png",
+        "p": "#00843D",
+        "s": "#003DA5"
+      },
+      {
+        "club": "מכבי בני רעינה",
+        "wiki": "Maccabi_Bnei_Reineh_F.C.",
+        "crest": null,
+        "p": "#00843D",
+        "s": "#003DA5"
+      },
+      {
+        "club": "מכבי חיפה",
+        "wiki": "Maccabi_Haifa_F.C.",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/1/15/Maccabi_Haifa_FC_Logo_2023.png/120px-Maccabi_Haifa_FC_Logo_2023.png",
+        "p": "#00843D",
+        "s": "#ffffff"
+      },
+      {
+        "club": "מכבי נתניה",
+        "wiki": "Maccabi_Netanya_F.C.",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Macca.webp/120px-Macca.webp.png",
+        "p": "#00843D",
+        "s": "#003DA5"
+      },
+      {
+        "club": "מכבי תל אביב",
+        "wiki": "Maccabi_Tel_Aviv_F.C.",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/e/e9/Maccabi_Tel_Aviv.png/120px-Maccabi_Tel_Aviv.png",
+        "p": "#FFE500",
+        "s": "#003DA5"
+      }
+    ]
+  },
+  {
+    "country": "אנגליה",
+    "flag": "https://flagcdn.com/w40/gb-eng.png",
+    "iso": "gb-eng",
+    "clubs": [
+      {
+        "club": "Arsenal",
+        "wiki": "Arsenal_F.C.",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/5/53/Arsenal_FC.svg/120px-Arsenal_FC.svg.png",
+        "p": "#EF0107",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Aston Villa",
+        "wiki": "Aston_Villa_F.C.",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Aston_Villa_FC_new_crest.svg/120px-Aston_Villa_FC_new_crest.svg.png",
+        "p": "#C8102E",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Bournemouth",
+        "wiki": "AFC_Bournemouth",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/e/e5/AFC_Bournemouth_%282013%29.svg/120px-AFC_Bournemouth_%282013%29.svg.png",
+        "p": "#C8102E",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Brentford",
+        "wiki": "Brentford_F.C.",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/2/2a/Brentford_FC_crest.svg/120px-Brentford_FC_crest.svg.png",
+        "p": "#C8102E",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Brighton & Hove Albion",
+        "wiki": "Brighton_%26_Hove_Albion_F.C.",
+        "crest": null,
+        "p": "#C8102E",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Chelsea",
+        "wiki": "Chelsea_F.C.",
+        "crest": null,
+        "p": "#1B4DA0",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Coventry City",
+        "wiki": "Coventry_City_F.C.",
+        "crest": null,
+        "p": "#C8102E",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Crystal Palace",
+        "wiki": "Crystal_Palace_F.C.",
+        "crest": null,
+        "p": "#C8102E",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Everton",
+        "wiki": "Everton_F.C.",
+        "crest": null,
+        "p": "#C8102E",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Fulham",
+        "wiki": "Fulham_F.C.",
+        "crest": null,
+        "p": "#C8102E",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Hull City",
+        "wiki": "Hull_City_A.F.C.",
+        "crest": null,
+        "p": "#C8102E",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Ipswich Town",
+        "wiki": "Ipswich_Town_F.C.",
+        "crest": null,
+        "p": "#C8102E",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Leeds United",
+        "wiki": "Leeds_United_F.C.",
+        "crest": null,
+        "p": "#C8102E",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Liverpool",
+        "wiki": "Liverpool_F.C.",
+        "crest": null,
+        "p": "#C8102E",
+        "s": "#F6EB61"
+      },
+      {
+        "club": "Manchester City",
+        "wiki": "Manchester_City_F.C.",
+        "crest": null,
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Manchester United",
+        "wiki": "Manchester_United_F.C.",
+        "crest": null,
+        "p": "#DA291C",
+        "s": "#FBE122"
+      },
+      {
+        "club": "Newcastle United",
+        "wiki": "Newcastle_United_F.C.",
+        "crest": null,
+        "p": "#C8102E",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Nottingham Forest",
+        "wiki": "Nottingham_Forest_F.C.",
+        "crest": null,
+        "p": "#C8102E",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Sunderland",
+        "wiki": "Sunderland_A.F.C.",
+        "crest": null,
+        "p": "#C8102E",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Tottenham Hotspur",
+        "wiki": "Tottenham_Hotspur_F.C.",
+        "crest": null,
+        "p": "#C8102E",
+        "s": "#ffffff"
+      }
+    ]
+  },
+  {
+    "country": "ספרד",
+    "flag": "https://flagcdn.com/w40/es.png",
+    "iso": "es",
+    "clubs": [
+      {
+        "club": "Alavés",
+        "wiki": "Deportivo_Alav%C3%A9s",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/f/f8/Deportivo_Alaves_logo_%282020%29.svg/120px-Deportivo_Alaves_logo_%282020%29.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Athletic Bilbao",
+        "wiki": "Athletic_Bilbao",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/9/98/Club_Athletic_Bilbao_logo.svg/120px-Club_Athletic_Bilbao_logo.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Atlético Madrid",
+        "wiki": "Atl%C3%A9tico_Madrid",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/f/f9/Atletico_Madrid_Logo_2024.svg/120px-Atletico_Madrid_Logo_2024.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Barcelona",
+        "wiki": "FC_Barcelona",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/4/47/FC_Barcelona_%28crest%29.svg/120px-FC_Barcelona_%28crest%29.svg.png",
+        "p": "#A50044",
+        "s": "#004D98"
+      },
+      {
+        "club": "Celta Vigo",
+        "wiki": "RC_Celta_de_Vigo",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/1/12/RC_Celta_de_Vigo_logo.svg/120px-RC_Celta_de_Vigo_logo.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Elche",
+        "wiki": "Elche_CF",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/a/a7/Elche_CF_logo.svg/120px-Elche_CF_logo.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Espanyol",
+        "wiki": "RCD_Espanyol",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/9/92/RCD_Espanyol_crest.svg/120px-RCD_Espanyol_crest.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Getafe",
+        "wiki": "Getafe_CF",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/4/46/Getafe_logo.svg/120px-Getafe_logo.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Girona",
+        "wiki": "Girona_FC",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/f/f7/Girona_FC_Logo.svg/120px-Girona_FC_Logo.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Levante",
+        "wiki": "Levante_UD",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/7/7b/Levante_Uni%C3%B3n_Deportiva%2C_S.A.D._logo.svg/120px-Levante_Uni%C3%B3n_Deportiva%2C_S.A.D._logo.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Mallorca",
+        "wiki": "RCD_Mallorca",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/e/e0/Rcd_mallorca.svg/120px-Rcd_mallorca.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Osasuna",
+        "wiki": "CA_Osasuna",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/3/38/CA_Osasuna_2024_crest.svg/120px-CA_Osasuna_2024_crest.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Oviedo",
+        "wiki": "Real_Oviedo",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/6/6e/Real_Oviedo_logo.svg/120px-Real_Oviedo_logo.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Rayo Vallecano",
+        "wiki": "Rayo_Vallecano",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/d/d8/Rayo_Vallecano_logo.svg/120px-Rayo_Vallecano_logo.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Real Betis",
+        "wiki": "Real_Betis",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/1/13/Real_betis_logo.svg/120px-Real_betis_logo.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Real Madrid",
+        "wiki": "Real_Madrid_CF",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/5/56/Real_Madrid_CF.svg/120px-Real_Madrid_CF.svg.png",
+        "p": "#FFFFFF",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Real Sociedad",
+        "wiki": "Real_Sociedad",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/f/f1/Real_Sociedad_logo.svg/120px-Real_Sociedad_logo.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Sevilla",
+        "wiki": "Sevilla_FC",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/3/3b/Sevilla_FC_logo.svg/120px-Sevilla_FC_logo.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Valencia",
+        "wiki": "Valencia_CF",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/c/ce/Valenciacf.svg/120px-Valenciacf.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      },
+      {
+        "club": "Villarreal",
+        "wiki": "Villarreal_CF",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/b/b9/Villarreal_CF_logo-en.svg/120px-Villarreal_CF_logo-en.svg.png",
+        "p": "#A50044",
+        "s": "#FEBE10"
+      }
+    ]
+  },
+  {
+    "country": "איטליה",
+    "flag": "https://flagcdn.com/w40/it.png",
+    "iso": "it",
+    "clubs": [
+      {
+        "club": "Atalanta",
+        "wiki": "Atalanta_BC",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Atalanta_BC_new_logo.svg/120px-Atalanta_BC_new_logo.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Bologna",
+        "wiki": "Bologna_FC_1909",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Bologna_F.C._1909_logo.svg/120px-Bologna_F.C._1909_logo.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Cagliari",
+        "wiki": "Cagliari_Calcio",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/6/61/Cagliari_Calcio_1920.svg/120px-Cagliari_Calcio_1920.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Como",
+        "wiki": "Como_1907",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Calcio_Como_-_logo_%28Italy%2C_2019-%29.svg/120px-Calcio_Como_-_logo_%28Italy%2C_2019-%29.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Cremonese",
+        "wiki": "US_Cremonese",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/e/e1/US_Cremonese_logo.svg/120px-US_Cremonese_logo.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Fiorentina",
+        "wiki": "ACF_Fiorentina",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/ACF_Fiorentina_-_logo_%28Italy%2C_2022%29.svg/120px-ACF_Fiorentina_-_logo_%28Italy%2C_2022%29.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Genoa",
+        "wiki": "Genoa_CFC",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/2/2c/Genoa_CFC_crest.svg/120px-Genoa_CFC_crest.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Hellas Verona",
+        "wiki": "Hellas_Verona_FC",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/9/92/Hellas_Verona_FC_logo_%282020%29.svg/120px-Hellas_Verona_FC_logo_%282020%29.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Inter Milan",
+        "wiki": "Inter_Milan",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/FC_Internazionale_Milano_2021.svg/120px-FC_Internazionale_Milano_2021.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Juventus",
+        "wiki": "Juventus_FC",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Juventus_FC_-_logo_black_%28Italy%2C_2020%29.svg/120px-Juventus_FC_-_logo_black_%28Italy%2C_2020%29.svg.png",
+        "p": "#F2F2F2",
+        "s": "#1a1a1a"
+      },
+      {
+        "club": "Lazio",
+        "wiki": "SS_Lazio",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/c/ce/S.S._Lazio_badge.svg/120px-S.S._Lazio_badge.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Lecce",
+        "wiki": "US_Lecce",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/2/23/US_Lecce_crest.svg/120px-US_Lecce_crest.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "AC Milan",
+        "wiki": "AC_Milan",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Logo_of_AC_Milan.svg/120px-Logo_of_AC_Milan.svg.png",
+        "p": "#FB090B",
+        "s": "#000000"
+      },
+      {
+        "club": "Napoli",
+        "wiki": "SSC_Napoli",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/SSC_Napoli_2025_%28white_and_azure%29.svg/120px-SSC_Napoli_2025_%28white_and_azure%29.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Parma",
+        "wiki": "Parma_Calcio_1913",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Logo_Parma_Calcio_1913_%28adozione_2016%29.svg/120px-Logo_Parma_Calcio_1913_%28adozione_2016%29.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Pisa",
+        "wiki": "Pisa_SC",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/6/6b/Pisa_SC_crest.svg/120px-Pisa_SC_crest.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Roma",
+        "wiki": "AS_Roma",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/f/f7/AS_Roma_logo_%282017%29.svg/120px-AS_Roma_logo_%282017%29.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Sassuolo",
+        "wiki": "US_Sassuolo",
+        "crest": null,
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Torino",
+        "wiki": "Torino_FC",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/2/2e/Torino_FC_Logo.svg/120px-Torino_FC_Logo.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      },
+      {
+        "club": "Udinese",
+        "wiki": "Udinese_Calcio",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/c/ce/Udinese_Calcio_logo.svg/120px-Udinese_Calcio_logo.svg.png",
+        "p": "#0068A8",
+        "s": "#000000"
+      }
+    ]
+  },
+  {
+    "country": "גרמניה",
+    "flag": "https://flagcdn.com/w40/de.png",
+    "iso": "de",
+    "clubs": [
+      {
+        "club": "FC Augsburg",
+        "wiki": "FC_Augsburg",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/c/c5/FC_Augsburg_logo.svg/120px-FC_Augsburg_logo.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      },
+      {
+        "club": "Bayer Leverkusen",
+        "wiki": "Bayer_04_Leverkusen",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/5/59/Bayer_04_Leverkusen_logo.svg/120px-Bayer_04_Leverkusen_logo.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      },
+      {
+        "club": "Bayern Munich",
+        "wiki": "FC_Bayern_Munich",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/FC_Bayern_M%C3%BCnchen_logo_%282024%29.svg/120px-FC_Bayern_M%C3%BCnchen_logo_%282024%29.svg.png",
+        "p": "#DC052D",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Borussia Dortmund",
+        "wiki": "Borussia_Dortmund",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Borussia_Dortmund_logo.svg/120px-Borussia_Dortmund_logo.svg.png",
+        "p": "#FDE100",
+        "s": "#000000"
+      },
+      {
+        "club": "Borussia Mönchengladbach",
+        "wiki": "Borussia_M%C3%B6nchengladbach",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Borussia_M%C3%B6nchengladbach_logo.svg/120px-Borussia_M%C3%B6nchengladbach_logo.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      },
+      {
+        "club": "Eintracht Frankfurt",
+        "wiki": "Eintracht_Frankfurt",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/7/7e/Eintracht_Frankfurt_crest.svg/120px-Eintracht_Frankfurt_crest.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      },
+      {
+        "club": "SC Elversberg",
+        "wiki": "SV_Elversberg",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/SV_Elversberg_Logo_2021.svg/120px-SV_Elversberg_Logo_2021.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      },
+      {
+        "club": "SC Freiburg",
+        "wiki": "SC_Freiburg",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/6/6d/SC_Freiburg_logo.svg/120px-SC_Freiburg_logo.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      },
+      {
+        "club": "Hamburger SV",
+        "wiki": "Hamburger_SV",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Hamburger_SV_logo.svg/120px-Hamburger_SV_logo.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      },
+      {
+        "club": "TSG Hoffenheim",
+        "wiki": "TSG_1899_Hoffenheim",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Logo_TSG_Hoffenheim.svg/120px-Logo_TSG_Hoffenheim.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      },
+      {
+        "club": "1. FC Köln",
+        "wiki": "1._FC_K%C3%B6ln",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/1._FC_Koeln_Logo_2014%E2%80%93.svg/120px-1._FC_Koeln_Logo_2014%E2%80%93.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      },
+      {
+        "club": "RB Leipzig",
+        "wiki": "RB_Leipzig",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/0/04/RB_Leipzig_2014_logo.svg/120px-RB_Leipzig_2014_logo.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      },
+      {
+        "club": "Mainz 05",
+        "wiki": "1._FSV_Mainz_05",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/1._FSV_Mainz_05_logo.svg/120px-1._FSV_Mainz_05_logo.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      },
+      {
+        "club": "SC Paderborn",
+        "wiki": "SC_Paderborn_07",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/b/b3/SC_Paderborn_07_logo.svg/120px-SC_Paderborn_07_logo.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      },
+      {
+        "club": "Schalke 04",
+        "wiki": "FC_Schalke_04",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/FC_Schalke_04_Logo.svg/120px-FC_Schalke_04_Logo.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      },
+      {
+        "club": "VfB Stuttgart",
+        "wiki": "VfB_Stuttgart",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/VfB_Stuttgart_1893_Logo.svg/120px-VfB_Stuttgart_1893_Logo.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      },
+      {
+        "club": "Union Berlin",
+        "wiki": "1._FC_Union_Berlin",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/1._FC_Union_Berlin_Logo.svg/120px-1._FC_Union_Berlin_Logo.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      },
+      {
+        "club": "Werder Bremen",
+        "wiki": "SV_Werder_Bremen",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/be/SV-Werder-Bremen-Logo.svg/120px-SV-Werder-Bremen-Logo.svg.png",
+        "p": "#DC052D",
+        "s": "#FDE100"
+      }
+    ]
+  },
+  {
+    "country": "צרפת",
+    "flag": "https://flagcdn.com/w40/fr.png",
+    "iso": "fr",
+    "clubs": [
+      {
+        "club": "Angers",
+        "wiki": "Angers_SCO",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Angers_Sporting_Club_de_l%27Ouest_logo.svg/120px-Angers_Sporting_Club_de_l%27Ouest_logo.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Auxerre",
+        "wiki": "AJ_Auxerre",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/5/51/AJAuxerreLogo.svg/120px-AJAuxerreLogo.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Brest",
+        "wiki": "Stade_Brestois_29",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/0/05/Stade_Brestois_29_logo.svg/120px-Stade_Brestois_29_logo.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Le Havre",
+        "wiki": "Le_Havre_AC",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/f/fc/Le_Havre_AC_logo.svg/120px-Le_Havre_AC_logo.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Lens",
+        "wiki": "RC_Lens",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/c/cc/RC_Lens_logo.svg/120px-RC_Lens_logo.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Lille",
+        "wiki": "Lille_OSC",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/3/3f/Lille_OSC_2018_logo.svg/120px-Lille_OSC_2018_logo.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Lorient",
+        "wiki": "FC_Lorient",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/4/4c/FC_Lorient_logo.svg/120px-FC_Lorient_logo.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Lyon",
+        "wiki": "Olympique_Lyonnais",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/1/1c/Olympique_Lyonnais_logo.svg/120px-Olympique_Lyonnais_logo.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Marseille",
+        "wiki": "Olympique_de_Marseille",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Olympique_de_Marseille_2026_logo.svg/120px-Olympique_de_Marseille_2026_logo.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Metz",
+        "wiki": "FC_Metz",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/FC_Metz_2021_Logo.svg/120px-FC_Metz_2021_Logo.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Monaco",
+        "wiki": "AS_Monaco_FC",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/c/cf/LogoASMonacoFC2021.svg/120px-LogoASMonacoFC2021.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Nantes",
+        "wiki": "FC_Nantes",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Logo_FC_Nantes_%28avec_fond%29_-_2019.svg/120px-Logo_FC_Nantes_%28avec_fond%29_-_2019.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Nice",
+        "wiki": "OGC_Nice",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/2/2e/OGC_Nice_logo.svg/120px-OGC_Nice_logo.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Paris FC",
+        "wiki": "Paris_FC",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/9/9f/Paris_FC_logo.svg/120px-Paris_FC_logo.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Paris Saint-Germain",
+        "wiki": "Paris_Saint-Germain_FC",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/a/a7/Paris_Saint-Germain_F.C..svg/120px-Paris_Saint-Germain_F.C..svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Rennes",
+        "wiki": "Stade_Rennais_FC",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/9/9e/Stade_Rennais_FC.svg/120px-Stade_Rennais_FC.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Strasbourg",
+        "wiki": "RC_Strasbourg_Alsace",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/8/80/Racing_Club_de_Strasbourg_logo.svg/120px-Racing_Club_de_Strasbourg_logo.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      },
+      {
+        "club": "Toulouse",
+        "wiki": "Toulouse_FC",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/6/63/Toulouse_FC_2018_logo.svg/120px-Toulouse_FC_2018_logo.svg.png",
+        "p": "#0B5EA8",
+        "s": "#DA291C"
+      }
+    ]
+  },
+  {
+    "country": "ארגנטינה",
+    "flag": "https://flagcdn.com/w40/ar.png",
+    "iso": "ar",
+    "clubs": [
+      {
+        "club": "Aldosivi",
+        "wiki": "Club_Atl%C3%A9tico_Aldosivi",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/2/2a/Aldosivi_logo.svg/120px-Aldosivi_logo.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Argentinos Juniors",
+        "wiki": "Argentinos_Juniors",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Escudo_de_la_Asociaci%C3%B3n_Atl%C3%A9tica_Argentinos_Juniors.svg/120px-Escudo_de_la_Asociaci%C3%B3n_Atl%C3%A9tica_Argentinos_Juniors.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Atlético Tucumán",
+        "wiki": "Atl%C3%A9tico_Tucum%C3%A1n",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Atletico_tucuman_nuevo2.svg/120px-Atletico_tucuman_nuevo2.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Banfield",
+        "wiki": "Club_Atl%C3%A9tico_Banfield",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/CA_Banfield_%282014%29.svg/120px-CA_Banfield_%282014%29.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Barracas Central",
+        "wiki": "Barracas_Central",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Barracas_central_logo.svg/120px-Barracas_central_logo.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Belgrano",
+        "wiki": "Club_Atl%C3%A9tico_Belgrano",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Escudo_Oficial_del_Club_Atl%C3%A9tico_Belgrano.png/120px-Escudo_Oficial_del_Club_Atl%C3%A9tico_Belgrano.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Boca Juniors",
+        "wiki": "Boca_Juniors",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Boca_Juniors_logo18.svg/120px-Boca_Juniors_logo18.svg.png",
+        "p": "#003F87",
+        "s": "#FFD700"
+      },
+      {
+        "club": "Central Córdoba (SdE)",
+        "wiki": "Central_C%C3%B3rdoba_de_Santiago_del_Estero",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Central_Cordoba_SdE_crest_%282025%29.svg/120px-Central_Cordoba_SdE_crest_%282025%29.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Defensa y Justicia",
+        "wiki": "Defensa_y_Justicia",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Escudo_del_Club_Social_y_Deportivo_Defensa_y_Justicia.svg/120px-Escudo_del_Club_Social_y_Deportivo_Defensa_y_Justicia.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Deportivo Riestra",
+        "wiki": "Deportivo_Riestra",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Escudo_del_Club_Deportivo_Riestra.svg/120px-Escudo_del_Club_Deportivo_Riestra.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Estudiantes (LP)",
+        "wiki": "Estudiantes_de_La_Plata",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Estudiantes_de_la_Plata_crest_%282025%29_cropped.svg/120px-Estudiantes_de_la_Plata_crest_%282025%29_cropped.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Estudiantes (RC)",
+        "wiki": "Estudiantes_de_R%C3%ADo_Cuarto",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Escudo_Asociacion_Atl%C3%A9tica_Estudiantes_de_R%C3%ADo_Cuarto.svg/120px-Escudo_Asociacion_Atl%C3%A9tica_Estudiantes_de_R%C3%ADo_Cuarto.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Gimnasia y Esgrima (LP)",
+        "wiki": "Club_de_Gimnasia_y_Esgrima_La_Plata",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/6/6d/Gimnasia_Esgrima_LP_logo.svg/120px-Gimnasia_Esgrima_LP_logo.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Gimnasia y Esgrima (M)",
+        "wiki": "Gimnasia_y_Esgrima_de_Mendoza",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Escudo_Club_Gimnasia_y_Esgrima_Mendoza.svg/120px-Escudo_Club_Gimnasia_y_Esgrima_Mendoza.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Huracán",
+        "wiki": "Club_Atl%C3%A9tico_Hurac%C3%A1n",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Emblema_oficial_del_Club_Atl%C3%A9tico_Hurac%C3%A1n.svg/120px-Emblema_oficial_del_Club_Atl%C3%A9tico_Hurac%C3%A1n.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Independiente",
+        "wiki": "Club_Atl%C3%A9tico_Independiente",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Escudo_del_Club_Atl%C3%A9tico_Independiente.svg/120px-Escudo_del_Club_Atl%C3%A9tico_Independiente.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Independiente Rivadavia",
+        "wiki": "Independiente_Rivadavia",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/Escudo_del_Club_Independiente_Rivadavia.svg/120px-Escudo_del_Club_Independiente_Rivadavia.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Instituto",
+        "wiki": "Instituto_Atl%C3%A9tico_Central_C%C3%B3rdoba",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Instituto_acc_cordoba_logo.svg/120px-Instituto_acc_cordoba_logo.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Lanús",
+        "wiki": "Club_Atl%C3%A9tico_Lan%C3%BAs",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Escudo_de_Lan%C3%BAs_%28sin_estrellas%29.svg/120px-Escudo_de_Lan%C3%BAs_%28sin_estrellas%29.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Newell's Old Boys",
+        "wiki": "Newell%27s_Old_Boys",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Escudo_del_Club_Atl%C3%A9tico_Newell%27s_Old_Boys_de_Rosario.svg/120px-Escudo_del_Club_Atl%C3%A9tico_Newell%27s_Old_Boys_de_Rosario.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Platense",
+        "wiki": "Club_Atl%C3%A9tico_Platense",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Club_Alt%C3%A9tico_Platense_crest_%282025%29.svg/120px-Club_Alt%C3%A9tico_Platense_crest_%282025%29.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Racing",
+        "wiki": "Racing_Club_de_Avellaneda",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Escudo_de_Racing_Club_%282014%29.svg/120px-Escudo_de_Racing_Club_%282014%29.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "River Plate",
+        "wiki": "Club_Atl%C3%A9tico_River_Plate",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Club_Atl%C3%A9tico_River_Plate_logo.svg/120px-Club_Atl%C3%A9tico_River_Plate_logo.svg.png",
+        "p": "#FFFFFF",
+        "s": "#E2231A"
+      },
+      {
+        "club": "Rosario Central",
+        "wiki": "Rosario_Central",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/c/ce/Rosario_Central_logo.svg/120px-Rosario_Central_logo.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "San Lorenzo",
+        "wiki": "San_Lorenzo_de_Almagro",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Sanlorenzo_almagro_logo2026.png/120px-Sanlorenzo_almagro_logo2026.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Sarmiento (J)",
+        "wiki": "Club_Atl%C3%A9tico_Sarmiento_(Jun%C3%ADn)",
+        "crest": null,
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Talleres (C)",
+        "wiki": "Talleres_de_C%C3%B3rdoba",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/Escudo_Talleres_2015.svg/120px-Escudo_Talleres_2015.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Tigre",
+        "wiki": "Club_Atl%C3%A9tico_Tigre",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Escudo_del_Club_Atl%C3%A9tico_Tigre_-_2019.svg/120px-Escudo_del_Club_Atl%C3%A9tico_Tigre_-_2019.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Unión",
+        "wiki": "Uni%C3%B3n_de_Santa_Fe",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Escudo_club_Atl%C3%A9tico_Uni%C3%B3n_de_santa_fe.svg/120px-Escudo_club_Atl%C3%A9tico_Uni%C3%B3n_de_santa_fe.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      },
+      {
+        "club": "Vélez Sarsfield",
+        "wiki": "Club_Atl%C3%A9tico_V%C3%A9lez_Sarsfield",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Escudo_del_Club_Atl%C3%A9tico_V%C3%A9lez_Sarsfield.svg/120px-Escudo_del_Club_Atl%C3%A9tico_V%C3%A9lez_Sarsfield.svg.png",
+        "p": "#6CABDD",
+        "s": "#ffffff"
+      }
+    ]
+  },
+  {
+    "country": "ברזיל",
+    "flag": "https://flagcdn.com/w40/br.png",
+    "iso": "br",
+    "clubs": [
+      {
+        "club": "Atlético Mineiro",
+        "wiki": "Clube_Atl%C3%A9tico_Mineiro",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Logo_of_Clube_Atl%C3%A9tico_Mineiro.svg/120px-Logo_of_Clube_Atl%C3%A9tico_Mineiro.svg.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Athletico Paranaense",
+        "wiki": "Club_Athletico_Paranaense",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Athletico_Paranaense_%28Logo_2019%29.svg/120px-Athletico_Paranaense_%28Logo_2019%29.svg.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Bahia",
+        "wiki": "Esporte_Clube_Bahia",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Logo_of_Esporte_Clube_Bahia_%282004%29.svg/120px-Logo_of_Esporte_Clube_Bahia_%282004%29.svg.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Botafogo",
+        "wiki": "Botafogo_de_Futebol_e_Regatas",
+        "crest": null,
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Chapecoense",
+        "wiki": "Associa%C3%A7%C3%A3o_Chapecoense_de_Futebol",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Logo_Associa%C3%A7%C3%A3o_Chapecoense_de_Futebol.svg/120px-Logo_Associa%C3%A7%C3%A3o_Chapecoense_de_Futebol.svg.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Corinthians",
+        "wiki": "Sport_Club_Corinthians_Paulista",
+        "crest": null,
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Coritiba",
+        "wiki": "Coritiba_Foot_Ball_Club",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Coritiba_Foot_Ball_Club_logo.svg/120px-Coritiba_Foot_Ball_Club_logo.svg.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Cruzeiro",
+        "wiki": "Cruzeiro_Esporte_Clube",
+        "crest": null,
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Flamengo",
+        "wiki": "CR_Flamengo",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/Clube_de_Regatas_do_Flamengo_logo.svg/120px-Clube_de_Regatas_do_Flamengo_logo.svg.png",
+        "p": "#E20E0E",
+        "s": "#1a1a1a"
+      },
+      {
+        "club": "Fluminense",
+        "wiki": "Fluminense_FC",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Fluminense_Football_Club.svg/120px-Fluminense_Football_Club.svg.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Grêmio",
+        "wiki": "Gr%C3%AAmio_FBPA",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Gremio_logo.svg/120px-Gremio_logo.svg.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Internacional",
+        "wiki": "SC_Internacional",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Sport_Club_Internacional_logo.svg/120px-Sport_Club_Internacional_logo.svg.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Mirassol",
+        "wiki": "Mirassol_Futebol_Clube",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Mirassol_FC_logo.png/120px-Mirassol_FC_logo.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Palmeiras",
+        "wiki": "SE_Palmeiras",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/SE_Palmeiras_2025_crest.png/120px-SE_Palmeiras_2025_crest.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Red Bull Bragantino",
+        "wiki": "Red_Bull_Bragantino",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/2/2e/Red_Bull_Bragantino_logo.svg/120px-Red_Bull_Bragantino_logo.svg.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Remo",
+        "wiki": "Clube_do_Remo",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Clube_do_Remo.svg/120px-Clube_do_Remo.svg.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Santos",
+        "wiki": "Santos_FC",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Santos_Futebol_Clube_logo_%28with_stars_and_crown%29.png/120px-Santos_Futebol_Clube_logo_%28with_stars_and_crown%29.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "São Paulo",
+        "wiki": "S%C3%A3o_Paulo_FC",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/S%C3%A3o_Paulo_Futebol_Clube_logo_%282022%29.svg/120px-S%C3%A3o_Paulo_Futebol_Clube_logo_%282022%29.svg.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Vasco da Gama",
+        "wiki": "CR_Vasco_da_Gama",
+        "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/a/a5/Club_de_Regatas_Vasco_da_Gama_logo_%282021%29.svg/120px-Club_de_Regatas_Vasco_da_Gama_logo_%282021%29.svg.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      },
+      {
+        "club": "Vitória",
+        "wiki": "Esporte_Clube_Vit%C3%B3ria",
+        "crest": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Esporte_Clube_Vit%C3%B3ria_%282024%29.svg/120px-Esporte_Clube_Vit%C3%B3ria_%282024%29.svg.png",
+        "p": "#009C3B",
+        "s": "#FFDF00"
+      }
+    ]
+  }
+]
