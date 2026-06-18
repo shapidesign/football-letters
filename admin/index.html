@@ -83,6 +83,15 @@
       gap: 8px;
     }
 
+    .btn-primary {
+      background-color: var(--color-foreground);
+      color: var(--color-background);
+    }
+
+    .btn-primary:hover {
+      background-color: #e2e8f0;
+    }
+
     .btn-destructive {
       background-color: var(--color-destructive);
       color: white;
@@ -105,6 +114,11 @@
 
     .btn-outline:hover {
       background-color: var(--color-secondary);
+    }
+
+    .btn-full {
+      width: 100%;
+      justify-content: center;
     }
 
     .card {
@@ -181,7 +195,7 @@
       color: #94A3B8;
     }
 
-    /* Modal */
+    /* Modals & Overlays */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -219,6 +233,7 @@
     .modal-title {
       margin: 0 0 12px 0;
       font-size: 20px;
+      text-align: center;
     }
 
     .modal-body {
@@ -232,7 +247,66 @@
       gap: 12px;
       justify-content: flex-end;
     }
+
+    /* Auth Forms */
+    .auth-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-group label {
+      font-size: 13px;
+      color: #94A3B8;
+    }
+
+    .form-group input {
+      background: var(--color-background);
+      border: 1px solid var(--color-border);
+      color: var(--color-foreground);
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus {
+      border-color: var(--color-accent);
+    }
+
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      color: var(--color-border);
+      margin: 16px 0;
+    }
     
+    .auth-divider::before,
+    .auth-divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid var(--color-border);
+    }
+    
+    .auth-divider:not(:empty)::before {
+      margin-left: .25em;
+    }
+    
+    .auth-divider:not(:empty)::after {
+      margin-right: .25em;
+    }
+
+    /* Toast */
     .toast {
       position: fixed;
       bottom: 24px;
@@ -255,43 +329,85 @@
       opacity: 1;
       transform: translateX(-50%) translateY(0);
     }
+
+    #appContent {
+      display: none;
+    }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <header>
-      <div>
-        <h1>ניהול מכתבים</h1>
-        <div style="margin-top: 8px;">
-          <span class="stats" id="totalCount">טוען נתונים...</span>
-        </div>
-      </div>
-      <div>
-        <button class="btn btn-destructive" id="btnDeleteAll">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-          מחיקת כל המכתבים
+  <!-- Login Modal (Always visible if not logged in) -->
+  <div class="modal-overlay active" id="loginOverlay" style="background: var(--color-background);">
+    <div class="modal">
+      <h2 class="modal-title">כניסת מנהל</h2>
+      
+      <div class="auth-container">
+        <!-- Email Login -->
+        <form id="emailLoginForm" onsubmit="handleEmailLogin(event)">
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label>אימייל</label>
+            <input type="email" id="emailInput" placeholder="admin@domain.com" required dir="ltr" autocomplete="email">
+          </div>
+          <div class="form-group" style="margin-bottom: 24px;">
+            <label>סיסמה</label>
+            <input type="password" id="passwordInput" placeholder="••••••••" required dir="ltr" autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn btn-primary btn-full" id="btnEmailLogin">התחברות</button>
+        </form>
+
+        <div class="auth-divider">או</div>
+
+        <!-- Social Logins -->
+        <button class="btn btn-outline btn-full" onclick="signInWithProvider('google')">
+          <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="fill: currentColor; margin-left: 8px;"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          התחבר עם Google
+        </button>
+
+        <button class="btn btn-outline btn-full" onclick="signInWithProvider('apple')">
+          <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="fill: currentColor; margin-left: 8px;"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm1.6 15.66c-1.39.02-2.3-.67-2.84-.67-.56 0-1.63.7-2.92.68-1.68-.02-3.23-1.01-4.09-2.58-1.78-3.18-.46-7.89 1.25-10.42 1.4-2.06 3.25-2.5 4.54-2.5 1.57 0 2.5.75 3.32.75.82 0 1.95-.87 3.52-.75 2.1.18 3.5 1.09 4.38 2.37-3.4 2.16-2.9 6.2.78 7.62-.73 1.92-1.99 4.24-3.52 6.37-.87 1.26-1.55 2.12-2.73 2.12-.13 0-.25-.01-.38-.02h-1.31v.03zm-1.04-12.8c.7-.85 1.18-2.04 1.05-3.23-1.04.04-2.31.7-3.03 1.58-.64.77-1.2 1.99-1.05 3.16 1.15.09 2.32-.65 3.03-1.51z"/></svg>
+          התחבר עם Apple
         </button>
       </div>
-    </header>
+    </div>
+  </div>
 
-    <div class="card">
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>תאריך</th>
-              <th>קבוצה</th>
-              <th>תוכן המכתב</th>
-              <th style="width: 80px;">פעולות</th>
-            </tr>
-          </thead>
-          <tbody id="tableBody">
-            <tr>
-              <td colspan="4" class="empty-state">טוען...</td>
-            </tr>
-          </tbody>
-        </table>
+  <div id="appContent">
+    <div class="container">
+      <header>
+        <div>
+          <h1>ניהול מכתבים</h1>
+          <div style="margin-top: 8px;">
+            <span class="stats" id="totalCount">טוען נתונים...</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <button class="btn btn-outline" id="btnLogout" onclick="logout()">התנתק</button>
+          <button class="btn btn-destructive" id="btnDeleteAll">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            מחיקת הכל
+          </button>
+        </div>
+      </header>
+
+      <div class="card">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>תאריך</th>
+                <th>קבוצה</th>
+                <th>תוכן המכתב</th>
+                <th style="width: 80px;">פעולות</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <tr>
+                <td colspan="4" class="empty-state">טוען...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -319,11 +435,76 @@
 
     let letters = [];
 
+    const loginOverlay = document.getElementById('loginOverlay');
+    const appContent = document.getElementById('appContent');
     const tableBody = document.getElementById('tableBody');
     const totalCount = document.getElementById('totalCount');
     const modal = document.getElementById('deleteModal');
     const toastEl = document.getElementById('toast');
+    const btnEmailLogin = document.getElementById('btnEmailLogin');
     let toastTimeout;
+
+    // --- Authentication Logic ---
+
+    // Check auth status on load
+    supabaseClient.auth.getSession().then(({ data: { session } }) => {
+      handleAuthChange(session);
+    });
+
+    // Listen for auth changes (like logging in via Google redirect)
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+      handleAuthChange(session);
+    });
+
+    function handleAuthChange(session) {
+      if (session) {
+        // User is logged in
+        loginOverlay.classList.remove('active');
+        appContent.style.display = 'block';
+        loadData();
+      } else {
+        // User is logged out
+        loginOverlay.classList.add('active');
+        appContent.style.display = 'none';
+      }
+    }
+
+    async function handleEmailLogin(e) {
+      e.preventDefault();
+      btnEmailLogin.disabled = true;
+      btnEmailLogin.textContent = 'מתחבר...';
+
+      const email = document.getElementById('emailInput').value;
+      const password = document.getElementById('passwordInput').value;
+
+      const { error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        showToast('שגיאה בהתחברות: אימייל או סיסמה שגויים');
+      }
+      
+      btnEmailLogin.disabled = false;
+      btnEmailLogin.textContent = 'התחברות';
+    }
+
+    async function signInWithProvider(provider) {
+      const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: provider,
+        options: {
+          redirectTo: window.location.origin + window.location.pathname
+        }
+      });
+      if (error) showToast('שגיאה בהתחברות עם ' + provider);
+    }
+
+    async function logout() {
+      await supabaseClient.auth.signOut();
+    }
+
+    // --- Data Logic ---
 
     function showToast(msg) {
       toastEl.textContent = msg;
@@ -409,8 +590,6 @@
     });
 
     document.getElementById('btnConfirmDelete').addEventListener('click', async () => {
-      // Supabase trick to delete all rows: neq to something impossible, or in this case eq to themselves
-      // actually, just deleting where id is not null works.
       const { error } = await supabaseClient.from('letters').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       
       modal.classList.remove('active');
@@ -422,14 +601,14 @@
         loadData();
       }
     });
-
-    // Initial load
-    loadData();
     
     // Subscribe to realtime updates
     supabaseClient.channel('admin-channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'letters' }, () => {
-        loadData(); // Reload on any change
+        // Only reload if user is authenticated and viewing the dashboard
+        supabaseClient.auth.getSession().then(({ data: { session } }) => {
+          if(session) loadData(); 
+        });
       })
       .subscribe();
 
