@@ -81,8 +81,8 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   justify-content:space-between;cursor:default;
   transition:filter .15s;direction:rtl}
 .lm-block-inner:hover{filter:brightness(1.1)}
-.lm-tile-name{font-size:12px;font-weight:700;line-height:1.3;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9}
+    .lm-tile-name{font-size:12px;font-weight:700;line-height:1.15;
+      white-space:normal;word-break:break-word;overflow:hidden;opacity:.9}
 .lm-tile-count{font-family:'Reisinger-Yonatan','Rubik',sans-serif;
   font-weight:800;line-height:.88}
 
@@ -932,6 +932,7 @@ const Stadium = (function(){
       const nm=document.createElement('div'); nm.className='lm-tile-name';
       nm.textContent=cname(club);
       if(w/VW<.11||h/VH<.14) nm.style.display='none';
+      else if(w/VW<.2) nm.style.fontSize='10px';
       const ct=document.createElement('div'); ct.className='lm-tile-count';
       /* font size: proportional to block height, capped for large blocks */
       const fs=Math.max(13,Math.min(h/VH*130,66));
@@ -1161,10 +1162,18 @@ const FootballSim = (function(){
 
   /* decelerating flight for ground passes / shots */
   function easeOutFlight(t){return 1-Math.pow(1-t,2);}
+  function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
+  function attackAxes(team){
+    if(!pr) return{ax:1,ay:0,lx:0,ly:1};
+    if(!pr.portrait) return team===0?{ax:1,ay:0,lx:0,ly:1}:{ax:-1,ay:0,lx:0,ly:1};
+    return team===0?{ax:0,ay:1,lx:1,ly:0}:{ax:0,ay:-1,lx:1,ly:0};
+  }
+  function attackingSpeed(p,SPD){
+    if(p.role==='FWD'||p.role==='MID'||p.ri===1||p.ri===4) return SPD.attRun;
+    return SPD.midOff;
+  }
 
-  /* off-ball positioning: slide with the play toward the ball (team
-     compactness / support) plus a slow personal offset, so players move
-     as a unit instead of shuffling side-to-side in a fixed slot */
+  /* off-ball positioning: team shift, attacking runs, and slow personal drift */
   function setOffBallTarget(p, attTeam, now){
     const{px,py,pw,ph}=pr;
     const unit=Math.min(pw,ph);
@@ -1175,15 +1184,34 @@ const FootballSim = (function(){
     const refX=ball.holderIdx>=0?players[ball.holderIdx].x:ball.x;
     const refY=ball.holderIdx>=0?players[ball.holderIdx].y:ball.y;
     let bx=base.x, by=base.y;
-    if(pr.portrait){ bx+=(refX-base.x)*0.18; by+=(refY-base.y)*0.07; }
-    else          { by+=(refY-base.y)*0.18; bx+=(refX-base.x)*0.07; }
-    if(now>p.wanderAt){
-      const spr=unit*(isAtt?0.05:0.03);
-      p._ox=(Math.random()-0.5)*spr; p._oy=(Math.random()-0.5)*spr;
-      p.wanderAt=now+3000+Math.random()*3000;
+    const followMain=isAtt?0.24:0.16, followCross=isAtt?0.12:0.08;
+    if(pr.portrait){ bx+=(refX-base.x)*followMain; by+=(refY-base.y)*followCross; }
+    else          { by+=(refY-base.y)*followMain; bx+=(refX-base.x)*followCross; }
+
+    const motion=reduceMotion?0.35:1;
+    const{ax,ay,lx,ly}=attackAxes(p.team);
+    const lane=FORM[p.ri][1]-.5;
+    if(isAtt){
+      const rolePush=p.role==='FWD'?0.16:p.role==='MID'?0.12:(p.ri===1||p.ri===4)?0.085:0.035;
+      const pulse=reduceMotion?0.65:0.75+Math.sin(now*0.0017+p.ri*1.3+p.team)*0.25;
+      const overlap=(p.ri===1||p.ri===4)?0.09:0;
+      const lateralBreak=unit*lane*(p.role==='FWD'?0.18:p.role==='MID'?0.14:0.10);
+      bx+=ax*unit*(rolePush+overlap)*pulse*motion;
+      by+=ay*unit*(rolePush+overlap)*pulse*motion;
+      bx+=lx*lateralBreak*motion;
+      by+=ly*lateralBreak*motion;
+    }else{
+      const compact=(p.role==='MID'?0.05:p.role==='DEF'?0.035:p.role==='FWD'?0.025:0)*motion;
+      bx+=(refX-base.x)*compact;
+      by+=(refY-base.y)*compact;
     }
-    p.tx=Math.max(px+6,Math.min(px+pw-6, bx+(p._ox||0)));
-    p.ty=Math.max(py+6,Math.min(py+ph-6, by+(p._oy||0)));
+    if(now>p.wanderAt){
+      const spr=unit*(isAtt?0.075:0.04)*motion;
+      p._ox=(Math.random()-0.5)*spr; p._oy=(Math.random()-0.5)*spr;
+      p.wanderAt=now+1800+Math.random()*2200;
+    }
+    p.tx=clamp(bx+(p._ox||0),px+6,px+pw-6);
+    p.ty=clamp(by+(p._oy||0),py+6,py+ph-6);
   }
 
   /* speed-capped, frame-rate-independent step toward (p.tx,p.ty) */
@@ -1275,7 +1303,7 @@ const FootballSim = (function(){
        carrier is a touch faster than the presser so attacks can progress
        instead of being hounded into endless backward recycling */
     const SPD={gk:unit*0.15, defHold:unit*0.11, midOff:unit*0.185,
-               attRun:unit*0.23, carrier:unit*0.195, press:unit*0.18};
+               attRun:unit*0.24, carrier:unit*0.195, press:unit*0.18};
 
     const hi=ball.holderIdx;
     const holder=hi>=0?players[hi]:null;
@@ -1328,7 +1356,7 @@ const FootballSim = (function(){
           moveToward(p, SPD.gk, dt);
         }else{
           setOffBallTarget(p, lastAttTeam, now);
-          moveToward(p, p.team===lastAttTeam?SPD.midOff:SPD.defHold, dt);
+          moveToward(p, p.team===lastAttTeam?attackingSpeed(p,SPD):SPD.defHold, dt);
         }
         p.vx=p.x-prevX; p.vy=p.y-prevY;
       });
@@ -1377,7 +1405,7 @@ const FootballSim = (function(){
         moveToward(p, SPD.gk, dt);
       }else{
         setOffBallTarget(p, attTeam, now);
-        moveToward(p, isAtt?SPD.midOff:SPD.defHold, dt);
+        moveToward(p, isAtt?attackingSpeed(p,SPD):SPD.defHold, dt);
       }
       p.x=Math.max(px+4,Math.min(px+pw-4,p.x));
       p.y=Math.max(py+4,Math.min(py+ph-4,p.y));
@@ -1440,9 +1468,9 @@ const FootballSim = (function(){
       /* deliberate release: at the natural pass time, or for an incisive forward
          ball. Pressure does NOT force an instant pass — the carrier dribbles away
          instead, which is what kills the constant side-to-side recycling */
-      const incisive=best&&best.score>unit*0.20;
+      const incisive=best&&best.score>unit*0.17;
       if(best&&(timeUp||incisive)){
-        const pick=candidates.length>1&&Math.random()<.10?candidates[1]:candidates[0];
+        const pick=candidates.length>1&&Math.random()<.16?candidates[1]:candidates[0];
         holder.hasBall=false;
         ball.fromX=ball.x; ball.fromY=ball.y;
         ball.toX=players[pick.i].x; ball.toY=players[pick.i].y;

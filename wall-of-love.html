@@ -81,8 +81,8 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   justify-content:space-between;cursor:default;
   transition:filter .15s;direction:rtl}
 .lm-block-inner:hover{filter:brightness(1.1)}
-.lm-tile-name{font-size:12px;font-weight:700;line-height:1.3;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9}
+    .lm-tile-name{font-size:12px;font-weight:700;line-height:1.15;
+      white-space:normal;word-break:break-word;overflow:hidden;opacity:.9}
 .lm-tile-count{font-family:'Reisinger-Yonatan','Rubik',sans-serif;
   font-weight:800;line-height:.88}
 
@@ -932,6 +932,7 @@ const Stadium = (function(){
       const nm=document.createElement('div'); nm.className='lm-tile-name';
       nm.textContent=cname(club);
       if(w/VW<.11||h/VH<.14) nm.style.display='none';
+      else if(w/VW<.2) nm.style.fontSize='10px';
       const ct=document.createElement('div'); ct.className='lm-tile-count';
       /* font size: proportional to block height, capped for large blocks */
       const fs=Math.max(13,Math.min(h/VH*130,66));
@@ -1183,7 +1184,7 @@ const FootballSim = (function(){
   const FORM=[[.04,.50],[.20,.12],[.20,.38],[.20,.62],[.20,.88],[.40,.15],[.40,.38],[.40,.62],[.40,.85],[.48,.30],[.48,.70]];
   const ROLE=['GK','DEF','DEF','DEF','DEF','MID','MID','MID','MID','FWD','FWD'];
 
-  /* ── tactical geometry (unchanged from the original AI) ── */
+  /* ── tactical geometry ── */
   function pitchCoord(team,ri,attack){
     if(!pr) return{x:0,y:0};
     const[fx,fy]=FORM[ri];
@@ -1205,6 +1206,16 @@ const FootballSim = (function(){
     const{px,py,pw,ph,portrait}=pr;
     if(!portrait) return team===0?{x:px+pw,y:py+ph/2}:{x:px,y:py+ph/2};
     return team===0?{x:px+pw/2,y:py+ph}:{x:px+pw/2,y:py};
+  }
+  function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+  function attackAxes(team){
+    if(!pr) return{ax:1,ay:0,lx:0,ly:1};
+    if(!pr.portrait) return team===0?{ax:1,ay:0,lx:0,ly:1}:{ax:-1,ay:0,lx:0,ly:1};
+    return team===0?{ax:0,ay:1,lx:1,ly:0}:{ax:0,ay:-1,lx:1,ly:0};
+  }
+  function attackingSpeed(p,SPD){
+    if(p.role==='FWD'||p.role==='MID'||p.ri===1||p.ri===4) return SPD.attRun;
+    return SPD.midOff;
   }
   function nearestOpp(team,x,y,skipGK){
     let bd=Infinity,bi=-1;
@@ -1337,7 +1348,7 @@ const FootballSim = (function(){
     syncTransform();
   }
 
-  /* ── off-ball positioning: shift as a unit toward the ball + slow drift ── */
+  /* ── off-ball positioning: team shift + attacking runs + slow drift ── */
   function setOffBall(p, attTeam, now){
     const{px,py,pw,ph}=pr;
     const isAtt=p.team===attTeam;
@@ -1345,15 +1356,34 @@ const FootballSim = (function(){
     const refX=ball.holderIdx>=0?players[ball.holderIdx].x:ball.x;
     const refY=ball.holderIdx>=0?players[ball.holderIdx].y:ball.y;
     let bx=base.x, by=base.y;
-    if(pr.portrait){ bx+=(refX-base.x)*0.18; by+=(refY-base.y)*0.07; }
-    else           { by+=(refY-base.y)*0.18; bx+=(refX-base.x)*0.07; }
-    if(now>p.wanderAt){
-      const spr=unit*(isAtt?0.05:0.03);
-      p._ox=(Math.random()-0.5)*spr; p._oy=(Math.random()-0.5)*spr;
-      p.wanderAt=now+3000+Math.random()*3000;
+    const followMain=isAtt?0.24:0.16, followCross=isAtt?0.12:0.08;
+    if(pr.portrait){ bx+=(refX-base.x)*followMain; by+=(refY-base.y)*followCross; }
+    else           { by+=(refY-base.y)*followMain; bx+=(refX-base.x)*followCross; }
+
+    const motion=reduceMotion?0.35:1;
+    const{ax,ay,lx,ly}=attackAxes(p.team);
+    const lane=FORM[p.ri][1]-.5;
+    if(isAtt){
+      const rolePush=p.role==='FWD'?0.16:p.role==='MID'?0.12:(p.ri===1||p.ri===4)?0.085:0.035;
+      const pulse=reduceMotion?0.65:0.75+Math.sin(now*0.0017+p.ri*1.3+p.team)*0.25;
+      const overlap=(p.ri===1||p.ri===4)?0.09:0;
+      const lateralBreak=unit*lane*(p.role==='FWD'?0.18:p.role==='MID'?0.14:0.10);
+      bx+=ax*unit*(rolePush+overlap)*pulse*motion;
+      by+=ay*unit*(rolePush+overlap)*pulse*motion;
+      bx+=lx*lateralBreak*motion;
+      by+=ly*lateralBreak*motion;
+    }else{
+      const compact=(p.role==='MID'?0.05:p.role==='DEF'?0.035:p.role==='FWD'?0.025:0)*motion;
+      bx+=(refX-base.x)*compact;
+      by+=(refY-base.y)*compact;
     }
-    p.tx=Math.max(px+6,Math.min(px+pw-6, bx+(p._ox||0)));
-    p.ty=Math.max(py+6,Math.min(py+ph-6, by+(p._oy||0)));
+    if(now>p.wanderAt){
+      const spr=unit*(isAtt?0.075:0.04)*motion;
+      p._ox=(Math.random()-0.5)*spr; p._oy=(Math.random()-0.5)*spr;
+      p.wanderAt=now+1800+Math.random()*2200;
+    }
+    p.tx=clamp(bx+(p._ox||0),px+6,px+pw-6);
+    p.ty=clamp(by+(p._oy||0),py+6,py+ph-6);
   }
   function setGK(p){
     const{px,py,pw,ph}=pr; const base=pitchCoord(p.team,p.ri,false);
@@ -1364,7 +1394,7 @@ const FootballSim = (function(){
   /* ── high-level tactical AI: decide targets + pass/shot/tackle events ── */
   function runAI(now){
     const{px,py,pw,ph}=pr;
-    const SPD={gk:unit*0.16, defHold:unit*0.12, midOff:unit*0.19,
+    const SPD={gk:unit*0.16, defHold:unit*0.12, midOff:unit*0.19, attRun:unit*0.245,
                carrier:unit*0.20, press:unit*0.185, chase:unit*0.235};
 
     /* ── loose ball: chasers seek it, the rest hold shape ── */
@@ -1374,7 +1404,7 @@ const FootballSim = (function(){
       players.forEach((p,i)=>{
         if(p.role==='GK'){ setGK(p); p.spd=SPD.gk; }
         else if(i===near[0]||i===near[1]){ p.tx=ball.x; p.ty=ball.y; p.spd=SPD.chase; }
-        else { setOffBall(p, lastAttTeam, now); p.spd=p.team===lastAttTeam?SPD.midOff:SPD.defHold; }
+        else { setOffBall(p, lastAttTeam, now); p.spd=p.team===lastAttTeam?attackingSpeed(p,SPD):SPD.defHold; }
       });
       return;
     }
@@ -1405,7 +1435,7 @@ const FootballSim = (function(){
       if(i===ball.holderIdx){ p.spd=SPD.carrier; if(p.tx==null){p.tx=p.x;p.ty=p.y;} }
       else if(!isAtt && i===pressIdx && p.role!=='GK'){ p.tx=holder.x; p.ty=holder.y; p.spd=SPD.press; }
       else if(p.role==='GK'){ setGK(p); p.spd=SPD.gk; }
-      else { setOffBall(p, attTeam, now); p.spd=isAtt?SPD.midOff:SPD.defHold; }
+      else { setOffBall(p, attTeam, now); p.spd=isAtt?attackingSpeed(p,SPD):SPD.defHold; }
     });
 
     /* tackle (with a turnover cooldown so the ball can't ping-pong) */
@@ -1436,9 +1466,9 @@ const FootballSim = (function(){
         .sort((a,b)=>b.score-a.score);
       const best=cands[0];
       const timeUp=now>=holder.passAt;
-      const incisive=best&&best.score>unit*0.20;
+      const incisive=best&&best.score>unit*0.17;
       if(best&&(timeUp||incisive)){
-        const pick=cands.length>1&&Math.random()<.10?cands[1]:cands[0];
+        const pick=cands.length>1&&Math.random()<.16?cands[1]:cands[0];
         passTo(holder, players[pick.i], pick.i, now);
       }
     }
