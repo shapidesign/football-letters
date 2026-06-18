@@ -307,7 +307,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   <section class="screen" id="screen-intro">
     <span class="intro-badge">אצטדיון האהבה</span>
     <h1 class="intro-h">מכתב אהבה לקבוצה שלך</h1>
-    <p class="intro-p">התרגלת לבטא רגש על המגרש<br>עכשיו אפשר לבטא אותו גם במחוץ למגרש</p>
+    <p class="intro-p">התרגלת לבטא רגש על המגרש<br>עכשיו אפשר לבטא אותו גם מחוץ למגרש</p>
     <button class="intro-btn" id="enterBtn">כנס לאצטדיון</button>
   </section>
 
@@ -1173,8 +1173,8 @@ const FootballSim = (function(){
   function moveToward(p,speed,dt){
     const dx=p.tx-p.x, dy=p.ty-p.y;
     const d=Math.hypot(dx,dy);
-    if(d<0.4) return;
     const unit=Math.min(pr.pw,pr.ph);
+    if(d<unit*0.012) return;   /* deadzone: settle at the spot, no micro-twitch */
     const arrive=unit*0.05;
     let v=speed;
     if(d<arrive) v=speed*(0.3+0.7*(d/arrive)); /* ease into target */
