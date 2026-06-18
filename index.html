@@ -52,6 +52,9 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   justify-content:space-between;padding:max(16px,env(safe-area-inset-top)) 16px max(28px,env(safe-area-inset-bottom));
   pointer-events:none;z-index:5}
 #wallui.on{display:flex;z-index:25}
+/* transparent full-screen tap catcher — forwards to stadium seat picker */
+#seatOverlay{position:absolute;inset:0;z-index:0;pointer-events:auto;touch-action:manipulation}
+#wallui.on #legendBtn,#wallui.on .cta-wrap{position:relative;z-index:1}
 
 /* legend button + modal */
 #legendBtn{pointer-events:auto;font-family:inherit;font-size:13px;font-weight:600;
@@ -296,6 +299,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 </div>
 
 <div id="wallui">
+  <div id="seatOverlay" aria-hidden="true"></div>
   <button id="legendBtn" aria-label="אגדה">⚽ <span id="legendCount">0</span></button>
   <div class="cta-wrap">
     <button class="wall-cta" id="addBtn">כתוב מכתב אהבה לקבוצה שאתה כל כך אוהב</button>
@@ -1109,32 +1113,50 @@ const Stadium = (function(){
     return{x:(cx-r.left-cam.ox)/cam.scale,y:(cy-r.top-cam.oy)/cam.scale};
   }
 
-  /* nearest occupied seat within a screen-space tolerance.
-     screenTol is in CSS px and converted to world units via cam.scale,
-     so the target stays the same physical size at any zoom level. */
+  /* occupied seat hit-test: padded seat rect first, then nearest center.
+     screenTol is CSS px → world units via cam.scale (zoom-stable). */
   function pickSeat(cx,cy,screenTol){
     const {x,y}=screenToCanvas(cx,cy);
-    const tol=Math.max(sw()*2, screenTol/cam.scale);
-    let best=-1,bd=tol;
+    const ssw=sw(), ssh=sh();
+    const pad=screenTol/cam.scale;
+    let best=-1, bestDist=Infinity;
+    for(let i=0;i<seats.length;i++){
+      const s=seats[i];
+      if(s.li<0) continue;
+      const hw=ssw/2+pad, hh=ssh/2+pad;
+      if(x<s.x-hw||x>s.x+hw||y<s.y-hh||y>s.y+hh) continue;
+      const d=Math.hypot(x-s.x,y-s.y);
+      if(d<bestDist){bestDist=d;best=i;}
+    }
+    if(best>=0) return best;
+    const tol=Math.max(ssw,ssh,pad);
+    bestDist=tol;
     for(let i=0;i<seats.length;i++){
       const s=seats[i];
       if(s.li<0) continue;
       const d=Math.hypot(x-s.x,y-s.y);
-      if(d<bd){bd=d;best=i;}
+      if(d<bestDist){bestDist=d;best=i;}
     }
     return best;
   }
 
-  function onMove(cx,cy){
-    hoverIdx=pickSeat(cx,cy,20);
-    canvas.style.cursor=hoverIdx>=0?'pointer':'default';
+  function setCursor(idx){
+    const cur=idx>=0?'pointer':'default';
+    canvas.style.cursor=cur;
+    const ov=$('#seatOverlay');
+    if(ov) ov.style.cursor=cur;
   }
 
-  /* generous ~30px tap radius (≈60px target) so finger taps on the
-     small seats reliably register — meets touch-target guidance */
+  function onMove(cx,cy){
+    hoverIdx=pickSeat(cx,cy,24);
+    setCursor(hoverIdx);
+  }
+
+  /* ~36px tap padding (≈72px target) so every visible seat is tappable */
   function onClick(cx,cy){
-    const i=pickSeat(cx,cy,30);
+    const i=pickSeat(cx,cy,36);
     if(i>=0) openReader(seats[i]);
+    return i>=0;
   }
 
   canvas.addEventListener('mousemove',e=>{onMove(e.clientX,e.clientY);});
@@ -1144,6 +1166,17 @@ const Stadium = (function(){
     const t=e.changedTouches[0];
     onClick(t.clientX,t.clientY);
   },{passive:false});
+
+  const seatOverlay=$('#seatOverlay');
+  if(seatOverlay){
+    seatOverlay.addEventListener('mousemove',e=>{onMove(e.clientX,e.clientY);});
+    seatOverlay.addEventListener('click',e=>{onClick(e.clientX,e.clientY);});
+    seatOverlay.addEventListener('touchend',e=>{
+      e.preventDefault();
+      const t=e.changedTouches[0];
+      onClick(t.clientX,t.clientY);
+    },{passive:false});
+  }
 
   function relayout(focusMine){
     if(focusMine&&S.pendingMyIndex>=0) S.letters[S.pendingMyIndex]._born=performance.now();
@@ -1157,7 +1190,7 @@ const Stadium = (function(){
     requestAnimationFrame(frame);
   }
 
-  return {init,relayout,assign,zoomToMySeat,getPitch:()=>pitch(),getCam:()=>cam};
+  return {init,relayout,assign,zoomToMySeat,openSeatAt:onClick,getPitch:()=>pitch(),getCam:()=>cam};
 })();
 
 /* ── FootballSim ──
