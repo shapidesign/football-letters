@@ -1587,8 +1587,8 @@ async function joinWall(){
   setTimeout(()=>{showStadium();Stadium.relayout(true);},650);
   setTimeout(()=>{Stadium.zoomToMySeat();},1500);
   
-  if(typeof supabase !== 'undefined'){
-    const { data } = await supabase.from('letters').insert([
+  if(typeof supabaseClient !== 'undefined'){
+    const { data } = await supabaseClient.from('letters').insert([
       { club_id: S.club.id, text: S.text, len: S.text.length }
     ]).select();
     if(data && data[0]) myLocalLetter.id = data[0].id;
@@ -1650,7 +1650,7 @@ $('#legendModal').onclick=e=>{if(e.target.id==='legendModal')$('#legendModal').c
 /* ── Supabase ── */
 const SUPABASE_URL = 'https://svmgctxeojtdbntecohm.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_x84awPDK6-HZgeeuP24keA_1UzGC5ri';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const myId = Math.random().toString(36).slice(2);
 let broadcastChannel = null;
@@ -1658,7 +1658,7 @@ let broadcastChannel = null;
 async function initSupabase(){
   try {
     // 1. Fetch existing letters
-    const { data, error } = await supabase.from('letters').select('*');
+    const { data, error } = await supabaseClient.from('letters').select('*');
     if (data && !error) {
       data.forEach(l => {
         S.letters.push({ clubId: l.club_id, text: l.text, len: l.len, id: l.id });
@@ -1669,7 +1669,7 @@ async function initSupabase(){
     }
 
     // 2. Listen to new letters
-    supabase.channel('public:letters')
+    supabaseClient.channel('public:letters')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'letters' }, payload => {
         const l = payload.new;
         if (!S.letters.some(existing => existing.id === l.id || (existing.text === l.text && existing.clubId === l.club_id))) {
@@ -1682,7 +1682,7 @@ async function initSupabase(){
       .subscribe();
 
     // 3. Realtime Presence for broadcasting
-    broadcastChannel = supabase.channel('room-1');
+    broadcastChannel = supabaseClient.channel('room-1');
     broadcastChannel.on('presence', { event: 'sync' }, () => {
     }).on('presence', { event: 'join' }, ({ key, newPresences }) => {
       newPresences.forEach(p => {

@@ -1132,7 +1132,7 @@ const FootballSim = (function(){
   let players=[], pr=null;
   let teamColor0='#7B4FFF', teamColor1='#C8102E';
   let ball={x:0,y:0,holderIdx:0,inFlight:false,fromX:0,fromY:0,toX:0,toY:0,_startT:0,flightDur:800,targetIdx:-1,mode:'pass',shooterTeam:0};
-  let lastNow=0, kickoffTeam=0;
+  let lastNow=0, kickoffTeam=0, lastTurnover=0;
 
   /* decelerating flight for ground passes / shots */
   function easeOutFlight(t){return 1-Math.pow(1-t,2);}
@@ -1157,14 +1157,20 @@ const FootballSim = (function(){
   function pitchCoord(team,ri,attack){
     if(!pr) return{x:0,y:0};
     const[fx,fy]=FORM[ri];
-    const push=attack?ROLE[ri]==='FWD'?.28:ROLE[ri]==='MID'?.13:ROLE[ri]==='DEF'?.04:0:0;
-    const fxA=Math.min(.96,fx+push);
+    /* depth = fraction of the FULL pitch length from own goal.
+       At rest each team sits in its own half; when attacking the whole
+       team shifts upfield so forwards reach the opponent's final third. */
+    let depth=fx*0.5;
+    if(attack){
+      const ext=ROLE[ri]==='FWD'?.42:ROLE[ri]==='MID'?.30:ROLE[ri]==='DEF'?.16:.02;
+      depth=Math.min(0.94, depth+ext);
+    }
     const{px,py,pw,ph,portrait}=pr;
     if(!portrait){
-      const x=team===0?px+fxA*pw*.5:px+pw-fxA*pw*.5;
+      const x=team===0?px+depth*pw:px+pw-depth*pw;
       return{x,y:py+fy*ph};
     }
-    const y=team===0?py+fxA*ph*.5:py+ph-fxA*ph*.5;
+    const y=team===0?py+depth*ph:py+ph-depth*ph;
     return{x:px+fy*pw,y};
   }
 
@@ -1204,7 +1210,7 @@ const FootballSim = (function(){
           toX:cx,toY:cy,_startT:0,flightDur:800,targetIdx:-1,mode:'pass',shooterTeam:0};
     const t=performance.now();
     players[20].dribbleAt=t+900; players[20].passAt=t+2800; players[20].shotAt=t+3000;
-    lastNow=0; kickoffTeam=0;
+    lastNow=0; kickoffTeam=0; lastTurnover=0;
   }
 
   function update(now,pitchRect){
@@ -1216,9 +1222,11 @@ const FootballSim = (function(){
     if(dt>0.05) dt=0.05;            /* clamp after tab-switch / first frame */
     lastNow=now;
 
-    /* movement speeds in px/sec, scaled to pitch size — measured match tempo */
-    const SPD={gk:unit*0.13, defHold:unit*0.11, midOff:unit*0.17,
-               attRun:unit*0.23, carrier:unit*0.18, press:unit*0.27};
+    /* movement speeds in px/sec, scaled to pitch size — measured match tempo.
+       carrier is a touch faster than the presser so attacks can progress
+       instead of being hounded into endless backward recycling */
+    const SPD={gk:unit*0.15, defHold:unit*0.11, midOff:unit*0.18,
+               attRun:unit*0.23, carrier:unit*0.205, press:unit*0.185};
 
     const hi=ball.holderIdx;
     const holder=hi>=0?players[hi]:null;
@@ -1233,7 +1241,7 @@ const FootballSim = (function(){
       /* goalkeeper save: defending GK intercepts a shot mid-flight */
       if(ball.mode==='shot'){
         const gk=players.find(p=>p.team!==ball.shooterTeam&&p.role==='GK');
-        if(gk&&Math.hypot(gk.x-ball.x,gk.y-ball.y)<gk.r+6){
+        if(gk&&Math.hypot(gk.x-ball.x,gk.y-ball.y)<gk.r+unit*0.03){
           gk.hasBall=true; ball.holderIdx=players.indexOf(gk);
           ball.inFlight=false; ball.mode='pass'; ball.targetIdx=-1;
           gk.dribbleAt=now+900; gk.shotAt=now+9999999;
@@ -1254,10 +1262,10 @@ const FootballSim = (function(){
         if(recv){
           recv.hasBall=true; ball.holderIdx=ball.targetIdx;
           recv.dribbleAt=now+500;
-          recv.shotAt=now+1200+Math.random()*1500;   /* settle before shooting */
+          recv.shotAt=now+1800+Math.random()*1800;   /* settle before shooting */
           const{dist:dn}=nearestOpp(recv.team,recv.x,recv.y,true);
           const pressure=dn<unit*.2;
-          recv.passAt=now+(pressure?1500+Math.random()*1200:3500+Math.random()*3000);
+          recv.passAt=now+(pressure?1400+Math.random()*1000:2200+Math.random()*1800);
         }
         ball.targetIdx=-1;
       }
@@ -1275,12 +1283,12 @@ const FootballSim = (function(){
     if(!holder) return;
     const attTeam=holder.team;
     const{idx:pressIdx,dist:pressDist}=nearestOpp(attTeam,holder.x,holder.y,true);
-    const underPressure=pressDist<unit*.18;
+    const underPressure=pressDist<unit*.12;
     const goal=goalPos(attTeam);
     const distGoal=Math.hypot(goal.x-holder.x,goal.y-holder.y);
 
     /* ── shot: carrier in the final third & in range ── */
-    if(holder.role!=='GK' && distGoal<unit*.55 && now>=holder.shotAt){
+    if(holder.role!=='GK' && distGoal<unit*.52 && now>=holder.shotAt){
       shoot(holder,attTeam,now);
       return;
     }
@@ -1306,10 +1314,12 @@ const FootballSim = (function(){
         p.tx=holder.x; p.ty=holder.y;
         moveToward(p, SPD.press, dt);
       }else{
-        const attack=isAtt&&pressDist<unit*.35;
+        const attack=isAtt;   /* push the whole team up while in possession */
         const base=pitchCoord(p.team,p.ri,attack);
         if(p.role==='GK'){
-          p.tx=base.x; p.ty=base.y;
+          /* hold the goal line but slide across to cover the ball */
+          if(pr.portrait){ p.tx=Math.max(px+pw*0.34,Math.min(px+pw*0.66, ball.x)); p.ty=base.y; }
+          else { p.ty=Math.max(py+ph*0.34,Math.min(py+ph*0.66, ball.y)); p.tx=base.x; }
           moveToward(p, SPD.gk, dt);
         }else{
           if(now>p.wanderAt){
@@ -1340,20 +1350,22 @@ const FootballSim = (function(){
       }
     }
 
-    /* ── tackle (only after short possession grace) ── */
-    if(now>holder.passAt-1800){
+    /* ── tackle (after a short possession grace, with a turnover cooldown
+       so the ball can't ping-pong between two adjacent players) ── */
+    if(now-lastTurnover>700 && now>holder.passAt-1800){
       const opp=players.find(p=>
         p.team!==attTeam&&p.role!=='GK'&&Math.hypot(p.x-holder.x,p.y-holder.y)<11);
       if(opp){
+        lastTurnover=now;
         holder.hasBall=false; opp.hasBall=true;
         const oi=players.indexOf(opp); ball.holderIdx=oi;
         const g=goalPos(opp.team),gl=Math.hypot(g.x-opp.x,g.y-opp.y)||1;
         ball.x=opp.x+(g.x-opp.x)/gl*(opp.r+3.8);
         ball.y=opp.y+(g.y-opp.y)/gl*(opp.r+3.8);
         opp.dribbleAt=now+500;
-        opp.shotAt=now+1500+Math.random()*2000;
+        opp.shotAt=now+2000+Math.random()*2000;
         const{dist:dn2}=nearestOpp(opp.team,opp.x,opp.y,true);
-        opp.passAt=now+(dn2<unit*.2?1200+Math.random()*1000:2500+Math.random()*2500);
+        opp.passAt=now+(dn2<unit*.2?1300+Math.random()*900:2200+Math.random()*1600);
         return;
       }
     }
@@ -1370,16 +1382,18 @@ const FootballSim = (function(){
           const prog=rx*ax+ry*ay;                 /* forward progress along axis */
           const lateral=Math.abs(rx*(-ay)+ry*ax); /* perpendicular offset */
           const{dist:space}=nearestOpp(attTeam,p.x,p.y,false);
-          let score=prog*1.0 + space*0.35 - lateral*0.40;
-          if(prog<0) score-=underPressure?20:140;  /* discourage backward unless pressed */
+          let score=prog*1.20 + space*0.28 - lateral*0.50;
+          if(prog<0) score-=underPressure?120:200;  /* strongly discourage backward passes */
           return{i,score};
         })
         .sort((a,b)=>b.score-a.score);
       const best=candidates[0];
       const timeUp=now>=holder.passAt;
-      /* release on timeout, under pressure, or when an incisive forward ball is on */
-      const incisive=best&&best.score>unit*0.35;
-      if(best&&(timeUp||underPressure||incisive)){
+      /* deliberate release: at the natural pass time, or for an incisive forward
+         ball. Pressure does NOT force an instant pass — the carrier dribbles away
+         instead, which is what kills the constant side-to-side recycling */
+      const incisive=best&&best.score>unit*0.20;
+      if(best&&(timeUp||incisive)){
         const pick=candidates.length>1&&Math.random()<.10?candidates[1]:candidates[0];
         holder.hasBall=false;
         ball.fromX=ball.x; ball.fromY=ball.y;
@@ -1395,7 +1409,7 @@ const FootballSim = (function(){
   function shoot(shooter,team,now){
     const goal=goalPos(team);
     const unit=Math.min(pr.pw,pr.ph);
-    const acc=(Math.random()-0.5)*2*unit*0.10;   /* accuracy spread across the mouth */
+    const acc=(Math.random()-0.5)*2*unit*0.08;   /* accuracy spread across the mouth */
     let tx=goal.x, ty=goal.y;
     if(pr.portrait) tx+=acc; else ty+=acc;
     shooter.hasBall=false;
@@ -1409,7 +1423,7 @@ const FootballSim = (function(){
 
   /* ── restart from kickoff for the given team ── */
   function resetKickoff(team,now){
-    kickoffTeam=team;
+    kickoffTeam=team; lastTurnover=now;
     players.forEach(p=>{
       const base=pitchCoord(p.team,p.ri,false);
       p.x=base.x; p.y=base.y; p.tx=base.x; p.ty=base.y; p.vx=0; p.vy=0;
@@ -1421,7 +1435,7 @@ const FootballSim = (function(){
     const idx=players.findIndex(p=>p.team===team&&p.ri===10);
     const fwd=players[idx];
     fwd.x=cx; fwd.y=cy; fwd.tx=cx; fwd.ty=cy; fwd.hasBall=true;
-    fwd.dribbleAt=now+900; fwd.passAt=now+2500+Math.random()*1500; fwd.shotAt=now+3000;
+    fwd.dribbleAt=now+900; fwd.passAt=now+2200+Math.random()*1400; fwd.shotAt=now+3200;
     ball={x:cx,y:cy,holderIdx:idx,inFlight:false,fromX:cx,fromY:cy,
           toX:cx,toY:cy,_startT:0,flightDur:800,targetIdx:-1,mode:'pass',shooterTeam:team};
   }
@@ -1639,8 +1653,8 @@ async function joinWall(){
   setTimeout(()=>{showStadium();Stadium.relayout(true);},650);
   setTimeout(()=>{Stadium.zoomToMySeat();},1500);
   
-  if(typeof supabase !== 'undefined'){
-    const { data } = await supabase.from('letters').insert([
+  if(typeof supabaseClient !== 'undefined'){
+    const { data } = await supabaseClient.from('letters').insert([
       { club_id: S.club.id, text: S.text, len: S.text.length }
     ]).select();
     if(data && data[0]) myLocalLetter.id = data[0].id;
@@ -1702,7 +1716,7 @@ $('#legendModal').onclick=e=>{if(e.target.id==='legendModal')$('#legendModal').c
 /* ── Supabase ── */
 const SUPABASE_URL = 'https://svmgctxeojtdbntecohm.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_x84awPDK6-HZgeeuP24keA_1UzGC5ri';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const myId = Math.random().toString(36).slice(2);
 let broadcastChannel = null;
@@ -1710,7 +1724,7 @@ let broadcastChannel = null;
 async function initSupabase(){
   try {
     // 1. Fetch existing letters
-    const { data, error } = await supabase.from('letters').select('*');
+    const { data, error } = await supabaseClient.from('letters').select('*');
     if (data && !error) {
       data.forEach(l => {
         S.letters.push({ clubId: l.club_id, text: l.text, len: l.len, id: l.id });
@@ -1721,7 +1735,7 @@ async function initSupabase(){
     }
 
     // 2. Listen to new letters
-    supabase.channel('public:letters')
+    supabaseClient.channel('public:letters')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'letters' }, payload => {
         const l = payload.new;
         if (!S.letters.some(existing => existing.id === l.id || (existing.text === l.text && existing.clubId === l.club_id))) {
@@ -1734,7 +1748,7 @@ async function initSupabase(){
       .subscribe();
 
     // 3. Realtime Presence for broadcasting
-    broadcastChannel = supabase.channel('room-1');
+    broadcastChannel = supabaseClient.channel('room-1');
     broadcastChannel.on('presence', { event: 'sync' }, () => {
     }).on('presence', { event: 'join' }, ({ key, newPresences }) => {
       newPresences.forEach(p => {
