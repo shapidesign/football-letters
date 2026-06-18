@@ -7,8 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 @font-face {
   font-family: 'Reisinger-Yonatan';
@@ -1132,7 +1131,24 @@ const Stadium = (function(){
 const FootballSim = (function(){
   let players=[], pr=null;
   let teamColor0='#7B4FFF', teamColor1='#C8102E';
-  let ball={x:0,y:0,holderIdx:0,inFlight:false,fromX:0,fromY:0,toX:0,toY:0,_startT:0,flightDur:800,targetIdx:-1};
+  let ball={x:0,y:0,holderIdx:0,inFlight:false,fromX:0,fromY:0,toX:0,toY:0,_startT:0,flightDur:800,targetIdx:-1,mode:'pass',shooterTeam:0};
+  let lastNow=0, kickoffTeam=0;
+
+  /* decelerating flight for ground passes / shots */
+  function easeOutFlight(t){return 1-Math.pow(1-t,2);}
+
+  /* speed-capped, frame-rate-independent step toward (p.tx,p.ty) */
+  function moveToward(p,speed,dt){
+    const dx=p.tx-p.x, dy=p.ty-p.y;
+    const d=Math.hypot(dx,dy);
+    if(d<0.4) return;
+    const unit=Math.min(pr.pw,pr.ph);
+    const arrive=unit*0.05;
+    let v=speed;
+    if(d<arrive) v=speed*(0.3+0.7*(d/arrive)); /* ease into target */
+    const stepDist=Math.min(d, v*dt);
+    p.x+=(dx/d)*stepDist; p.y+=(dy/d)*stepDist;
+  }
 
   /* 4-4-2: fx=0 own goal→0.5 halfway, fy=0→1 top→bottom */
   const FORM=[[.04,.50],[.20,.12],[.20,.38],[.20,.62],[.20,.88],[.40,.15],[.40,.38],[.40,.62],[.40,.85],[.48,.30],[.48,.70]];
@@ -1172,7 +1188,7 @@ const FootballSim = (function(){
   function mkP(team,ri){
     const{x,y}=pitchCoord(team,ri,false);
     return{team,x,y,tx:x,ty:y,vx:0,vy:0,r:5,role:ROLE[ri],ri,
-      hasBall:false,dribbleAt:0,passAt:0,wanderAt:performance.now()+Math.random()*2500};
+      hasBall:false,dribbleAt:0,passAt:0,shotAt:0,wanderAt:performance.now()+Math.random()*2500};
   }
 
   function reinit(pitchRect){
@@ -1185,9 +1201,10 @@ const FootballSim = (function(){
     players[20].x=cx; players[20].y=cy; players[20].tx=cx; players[20].ty=cy;
     players[20].hasBall=true;
     ball={x:cx,y:cy,holderIdx:20,inFlight:false,fromX:cx,fromY:cy,
-          toX:cx,toY:cy,_startT:0,flightDur:800,targetIdx:-1};
+          toX:cx,toY:cy,_startT:0,flightDur:800,targetIdx:-1,mode:'pass',shooterTeam:0};
     const t=performance.now();
-    players[20].dribbleAt=t+800; players[20].passAt=t+2500;
+    players[20].dribbleAt=t+900; players[20].passAt=t+2800; players[20].shotAt=t+3000;
+    lastNow=0; kickoffTeam=0;
   }
 
   function update(now,pitchRect){
@@ -1537,14 +1554,22 @@ $('#sendWA').onclick=()=>{
 };
 $('#notNow').onclick=()=>{toast('לא עכשיו. אבל המילים נשארות איתך.');joinWall();};
 
-function joinWall(){
-  S.letters.push({clubId:S.club.id,text:S.text,len:S.text.length});
+async function joinWall(){
+  const myLocalLetter = {clubId:S.club.id,text:S.text,len:S.text.length};
+  S.letters.push(myLocalLetter);
   S.pendingMyIndex=S.letters.length-1;
   hideBack();
   broadcastOnline();
   $('#ui').classList.add('gone');
   setTimeout(()=>{showStadium();Stadium.relayout(true);},650);
   setTimeout(()=>{Stadium.zoomToMySeat();},1500);
+  
+  if(typeof supabase !== 'undefined'){
+    const { data } = await supabase.from('letters').insert([
+      { club_id: S.club.id, text: S.text, len: S.text.length }
+    ]).select();
+    if(data && data[0]) myLocalLetter.id = data[0].id;
+  }
 }
 
 /* ── back navigation ── */
@@ -1599,38 +1624,73 @@ $('#legendBtn').onclick=()=>$('#legendModal').classList.add('on');
 $('#legendClose').onclick=()=>$('#legendModal').classList.remove('on');
 $('#legendModal').onclick=e=>{if(e.target.id==='legendModal')$('#legendModal').classList.remove('on');};
 
-/* ── Firebase ── */
-const FIREBASE_CONFIG = {
-  /* Paste your Firebase Realtime Database config here:
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
-  */
-};
+/* ── Supabase ── */
+const SUPABASE_URL = 'https://svmgctxeojtdbntecohm.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_x84awPDK6-HZgeeuP24keA_1UzGC5ri';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const myId = Math.random().toString(36).slice(2);
-let db = null;
-function initFirebase(){
-  try{
-    if(!FIREBASE_CONFIG.apiKey) return;
-    firebase.initializeApp(FIREBASE_CONFIG);
-    db=firebase.database();
-    const ref=db.ref('users/'+myId);
-    ref.set({status:'online',t:Date.now()});
-    ref.onDisconnect().remove();
-    db.ref('users').on('child_changed',snap=>{
-      const data=snap.val();
-      if(!data||snap.key===myId) return;
-      if(data.status&&data.status.startsWith('writing:')){
-        const clubId=data.status.slice(8);
-        const club=CLUBS[clubId];
-        if(club) toast('מישהו שולח מכתב אהבה ל'+cname(club)+' ✉️');
+let broadcastChannel = null;
+
+async function initSupabase(){
+  try {
+    // 1. Fetch existing letters
+    const { data, error } = await supabase.from('letters').select('*');
+    if (data && !error) {
+      data.forEach(l => {
+        S.letters.push({ clubId: l.club_id, text: l.text, len: l.len, id: l.id });
+      });
+      if (typeof Stadium !== 'undefined' && Stadium.assign) {
+        Stadium.assign();
+      }
+    }
+
+    // 2. Listen to new letters
+    supabase.channel('public:letters')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'letters' }, payload => {
+        const l = payload.new;
+        if (!S.letters.some(existing => existing.id === l.id || (existing.text === l.text && existing.clubId === l.club_id))) {
+          S.letters.push({ clubId: l.club_id, text: l.text, len: l.len, id: l.id });
+          if (typeof Stadium !== 'undefined' && Stadium.assign) {
+            Stadium.assign();
+          }
+        }
+      })
+      .subscribe();
+
+    // 3. Realtime Presence for broadcasting
+    broadcastChannel = supabase.channel('room-1');
+    broadcastChannel.on('presence', { event: 'sync' }, () => {
+    }).on('presence', { event: 'join' }, ({ key, newPresences }) => {
+      newPresences.forEach(p => {
+        if(p.status && p.status.startsWith('writing:') && p.id !== myId) {
+          const clubId = p.status.slice(8);
+          const club = CLUBS[clubId];
+          if(club) toast('מישהו שולח מכתב אהבה ל'+cname(club)+' ✉️');
+        }
+      });
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await broadcastChannel.track({ id: myId, status: 'online', t: Date.now() });
       }
     });
-  }catch(e){console.warn('Firebase init failed',e);}
+  } catch(e) {
+    console.warn('Supabase init failed', e);
+  }
 }
-function broadcastWriting(club){if(!db)return;db.ref('users/'+myId).update({status:'writing:'+club.id,t:Date.now()});}
-function broadcastOnline(){if(!db)return;db.ref('users/'+myId).update({status:'online',t:Date.now()});}
+
+function broadcastWriting(club){
+  if(broadcastChannel) {
+    broadcastChannel.track({ id: myId, status: 'writing:'+club.id, t: Date.now() });
+  }
+}
+
+function broadcastOnline(){
+  if(broadcastChannel) {
+    broadcastChannel.track({ id: myId, status: 'online', t: Date.now() });
+  }
+}
 
 /* ── boot ── */
 buildCountries();
@@ -1643,7 +1703,7 @@ FootballSim.reinit(Stadium.getPitch());
   const c1=recentClubColors.find(c=>colorDist(c,c0)>=80)||bestContrast(c0);
   FootballSim.setTeamColors(c0,c1);
 })();
-initFirebase();
+initSupabase();
 </script>
 </body>
 </html>
