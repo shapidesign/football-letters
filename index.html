@@ -70,14 +70,17 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   aspect-ratio:16/9}
 .lm-block{position:absolute;box-sizing:border-box;padding:3px}
 .lm-block-inner{width:100%;height:100%;border-radius:10px;overflow:hidden;
-  padding:10px 12px;display:flex;flex-direction:column;
+  padding:10px 12px;display:flex;flex-direction:column;gap:4px;
   justify-content:space-between;cursor:default;
   transition:filter .15s;direction:rtl}
+.lm-block-inner.lm-block-tiny{padding:5px 6px;border-radius:8px}
 .lm-block-inner:hover{filter:brightness(1.1)}
-.lm-tile-name{font-size:12px;font-weight:700;line-height:1.3;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9}
+.lm-tile-name{font-weight:700;line-height:1.15;word-break:break-word;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;opacity:.95;text-shadow:0 1px 2px rgba(0,0,0,.18)}
 .lm-tile-count{font-family:'Reisinger-Yonatan','Rubik',sans-serif;
-  font-weight:800;line-height:.88}
+  font-weight:800;line-height:.88;align-self:flex-start;
+  font-variant-numeric:tabular-nums}
 
 .cta-wrap{pointer-events:auto;display:flex;flex-direction:column;align-items:center}
 .wall-cta{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-weight:700;font-size:clamp(15px,3.8vw,19px);
@@ -855,29 +858,44 @@ const Stadium = (function(){
     updateLegend(sorted,map);
   }
 
-  /* ── binary-split treemap: items[{id,v}], returns [{x,y,w,h,item}] ── */
+  /* ── squarified treemap (Bruls et al.): items[{id,v}] sorted desc,
+        returns [{x,y,w,h,item}]. Keeps every tile's aspect ratio near 1
+        so no razor-thin strips — even when all values are equal. ── */
   function treemapLayout(items,x,y,w,h){
-    if(!items.length) return [];
-    if(items.length===1) return [{x,y,w,h,item:items[0]}];
+    const out=[];
     const total=items.reduce((a,i)=>a+i.v,0);
-    let bestSplit=1,bestScore=Infinity,cum=0;
-    for(let i=0;i<items.length-1;i++){
-      cum+=items[i].v;
-      const f=cum/total,g=1-f;
-      let s;
-      if(w>=h){const a=w*f,b=w*g;s=Math.max(a/h,h/a)+Math.max(b/h,h/b);}
-      else{const a=h*f,b=h*g;s=Math.max(w/a,a/w)+Math.max(w/b,b/w);}
-      if(s<bestScore){bestScore=s;bestSplit=i+1;}
+    if(total<=0||!items.length) return out;
+    const scale=(w*h)/total;
+    const data=items.map(it=>({item:it,area:it.v*scale}));
+    const rect={x,y,w,h};
+    const worst=(row,len)=>{
+      if(!row.length) return Infinity;
+      let sum=0,mx=-Infinity,mn=Infinity;
+      for(const r of row){sum+=r.area; if(r.area>mx)mx=r.area; if(r.area<mn)mn=r.area;}
+      const s2=sum*sum,l2=len*len;
+      return Math.max((l2*mx)/s2, s2/(l2*mn));
+    };
+    const lay=(row,r)=>{
+      const sum=row.reduce((a,it)=>a+it.area,0);
+      if(r.w>=r.h){
+        const sw=sum/r.h; let oy=r.y;
+        for(const it of row){const rh=it.area/sw; out.push({x:r.x,y:oy,w:sw,h:rh,item:it.item}); oy+=rh;}
+        r.x+=sw; r.w-=sw;
+      }else{
+        const sh=sum/r.w; let ox=r.x;
+        for(const it of row){const rw=it.area/sh; out.push({x:ox,y:r.y,w:rw,h:sh,item:it.item}); ox+=rw;}
+        r.y+=sh; r.h-=sh;
+      }
+    };
+    let row=[],i=0;
+    while(i<data.length){
+      const len=Math.min(rect.w,rect.h);
+      const next=data[i];
+      if(!row.length || worst(row,len)>=worst(row.concat(next),len)){ row.push(next); i++; }
+      else { lay(row,rect); row=[]; }
     }
-    const g1=items.slice(0,bestSplit),g2=items.slice(bestSplit);
-    const f1=g1.reduce((a,i)=>a+i.v,0)/total;
-    if(w>=h){
-      const w1=w*f1;
-      return[...treemapLayout(g1,x,y,w1,h),...treemapLayout(g2,x+w1,y,w-w1,h)];
-    }else{
-      const h1=h*f1;
-      return[...treemapLayout(g1,x,y,w,h1),...treemapLayout(g2,x,y+h1,w,h-h1)];
-    }
+    if(row.length) lay(row,rect);
+    return out;
   }
 
   function updateLegend(sorted,map){
@@ -903,12 +921,17 @@ const Stadium = (function(){
       const inner=document.createElement('div');
       inner.className='lm-block-inner';
       inner.style.background=bg; inner.style.color=tc;
+      /* smallest tile dimension as a fraction of the canvas — drives sizing */
+      const frac=Math.min(w/VW,h/VH);
+      const tiny=frac<.13;
+      if(tiny) inner.classList.add('lm-block-tiny');
       const nm=document.createElement('div'); nm.className='lm-tile-name';
       nm.textContent=cname(club);
-      if(w/VW<.11||h/VH<.14) nm.style.display='none';
+      /* name always shown; scales 10→15px with tile size, wraps to 2 lines */
+      nm.style.fontSize=Math.max(10,Math.min(15,8+frac*42)).toFixed(1)+'px';
       const ct=document.createElement('div'); ct.className='lm-tile-count';
-      /* font size: proportional to block height, capped for large blocks */
-      const fs=Math.max(13,Math.min(h/VH*130,66));
+      /* count proportional to tile height, capped so it never crowds the name */
+      const fs=Math.max(15,Math.min(h/VH*120,frac*0.9*VH*4,60));
       ct.style.fontSize=fs+'px';
       ct.textContent=c;
       inner.append(nm,ct); block.append(inner); grid.appendChild(block);
