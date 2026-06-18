@@ -1174,6 +1174,7 @@ const FootballSim = (function(){
   /* physics handles */
   let engine=null, world=null, ballBody=null;
   let unit=300, playerR=8, ballR=4, margin=16;
+  const COLLISION={player:0x0002, ball:0x0004, wall:0x0008};
 
   /* rendering handles */
   let game=null, scene=null, gfx=null, layerEl=null, ready=false;
@@ -1240,9 +1241,10 @@ const FootballSim = (function(){
   /* ── Matter body factory ── */
   function mkP(team,ri){
     const{x,y}=pitchCoord(team,ri,false);
-    const body=M?M.Bodies.circle(x,y,playerR,{frictionAir:0.10,friction:0,restitution:0.05,density:0.025,label:'player'}):null;
+    const body=M?M.Bodies.circle(x,y,playerR,{frictionAir:0.18,friction:0,restitution:0,density:0.025,
+      collisionFilter:{category:COLLISION.player,mask:COLLISION.wall},label:'player'}):null;
     if(body) M.Body.setInertia(body, Infinity);   /* lock rotation */
-    return{team,x,y,tx:x,ty:y,role:ROLE[ri],ri,_ox:0,_oy:0,spd:0,
+    return{team,x,y,tx:x,ty:y,role:ROLE[ri],ri,_ox:0,_oy:0,_tox:0,_toy:0,spd:0,
       hasBall:false,dribbleAt:0,passAt:0,shotAt:0,
       wanderAt:performance.now()+Math.random()*2500, body};
   }
@@ -1253,8 +1255,9 @@ const FootballSim = (function(){
     const t=Math.max(30, playerR*3);
     const X0=px,Y0=py,X1=px+pw,Y1=py+ph;
     const arr=[];
-    const add=(cx,cy,w,h,rest)=>arr.push(M.Bodies.rectangle(cx,cy,Math.max(2,w),Math.max(2,h),{isStatic:true,restitution:rest==null?0.3:rest,friction:0,label:'wall'}));
-    const post=(x,y)=>arr.push(M.Bodies.circle(x,y,Math.max(3,ballR*0.9),{isStatic:true,restitution:0.6,friction:0,label:'post'}));
+    const wallFilter={category:COLLISION.wall,mask:COLLISION.player|COLLISION.ball};
+    const add=(cx,cy,w,h,rest)=>arr.push(M.Bodies.rectangle(cx,cy,Math.max(2,w),Math.max(2,h),{isStatic:true,restitution:rest==null?0.3:rest,friction:0,collisionFilter:wallFilter,label:'wall'}));
+    const post=(x,y)=>arr.push(M.Bodies.circle(x,y,Math.max(3,ballR*0.9),{isStatic:true,restitution:0.6,friction:0,collisionFilter:wallFilter,label:'post'}));
     const depth=Math.max(10, margin*0.8);
     if(!portrait){
       const cyM=py+ph/2, mh=ph*0.108, top=cyM-mh/2, bot=cyM+mh/2;
@@ -1290,7 +1293,8 @@ const FootballSim = (function(){
     players=[];
     FORM.forEach((_,ri)=>{ players.push(mkP(0,ri)); players.push(mkP(1,ri)); });
     const cx=pr.px+pr.pw/2, cy=pr.py+pr.ph/2;
-    ballBody=M.Bodies.circle(cx,cy,ballR,{frictionAir:0.022,friction:0,frictionStatic:0,restitution:0.55,density:0.006,label:'ball'});
+    ballBody=M.Bodies.circle(cx,cy,ballR,{frictionAir:0.022,friction:0,frictionStatic:0,restitution:0.55,density:0.006,
+      collisionFilter:{category:COLLISION.ball,mask:COLLISION.wall},label:'ball'});
     M.Body.setInertia(ballBody, Infinity);
     M.World.add(world,[...players.map(p=>p.body), ballBody, ...buildWalls()]);
     resetKickoff(0, now);
@@ -1378,10 +1382,12 @@ const FootballSim = (function(){
       by+=(refY-base.y)*compact;
     }
     if(now>p.wanderAt){
-      const spr=unit*(isAtt?0.075:0.04)*motion;
-      p._ox=(Math.random()-0.5)*spr; p._oy=(Math.random()-0.5)*spr;
-      p.wanderAt=now+1800+Math.random()*2200;
+      const spr=unit*(isAtt?0.055:0.03)*motion;
+      p._tox=(Math.random()-0.5)*spr; p._toy=(Math.random()-0.5)*spr;
+      p.wanderAt=now+2600+Math.random()*2600;
     }
+    p._ox+=(p._tox-p._ox)*0.035;
+    p._oy+=(p._toy-p._oy)*0.035;
     p.tx=clamp(bx+(p._ox||0),px+6,px+pw-6);
     p.ty=clamp(by+(p._oy||0),py+6,py+ph-6);
   }
@@ -1480,10 +1486,18 @@ const FootballSim = (function(){
       const p=players[i], b=p.body; if(!b) continue;
       let dx=p.tx-b.position.x, dy=p.ty-b.position.y;
       const d=Math.hypot(dx,dy);
-      if(d<0.6){ M.Body.setVelocity(b,{x:0,y:0}); continue; }
+      if(d<1.4){
+        M.Body.setVelocity(b,{x:b.velocity.x*0.72,y:b.velocity.y*0.72});
+        continue;
+      }
       const arrive=unit*0.05; let s=p.spd||unit*0.11;
       if(d<arrive) s*=(0.3+0.7*(d/arrive));
-      M.Body.setVelocity(b,{x:(dx/d)*s*FIXED, y:(dy/d)*s*FIXED});
+      const desiredX=(dx/d)*s*FIXED, desiredY=(dy/d)*s*FIXED;
+      const ease=d<arrive?0.18:0.28;
+      M.Body.setVelocity(b,{
+        x:b.velocity.x+(desiredX-b.velocity.x)*ease,
+        y:b.velocity.y+(desiredY-b.velocity.y)*ease
+      });
     }
   }
   /* glue the ball to the carrier (slightly ahead, matching velocity) */
@@ -1659,9 +1673,8 @@ const FootballSim = (function(){
 
     /* players */
     players.forEach((p,i)=>{
-      const x=p.x-ox; let y=p.y-oy;
+      const x=p.x-ox, y=p.y-oy;
       const vx=p.body.velocity.x, vy=p.body.velocity.y, vl=Math.hypot(vx,vy);
-      if(!reduceMotion && vl>0.3) y-=Math.abs(Math.sin(t*0.013+i))*playerR*0.14;   /* run bob */
       const kit=p.role==='GK'?hexNum(p.team===0?gk0:gk1):hexNum(p.team===0?teamColor0:teamColor1);
       gfx.fillStyle(kit,1);
       gfx.fillEllipse(x,y, playerR*1.8, playerR*2.15);                              /* jersey */
