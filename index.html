@@ -57,21 +57,21 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 #legendModal{position:fixed;inset:0;z-index:35;background:rgba(0,0,0,.8);
   display:none;align-items:center;justify-content:center;padding:20px}
 #legendModal.on{display:flex}
-.lm-inner{background:var(--surface);border-radius:24px;padding:24px;
-  width:min(540px,94vw);max-height:80vh;overflow-y:auto}
+.lm-inner{background:var(--surface);border-radius:24px;padding:28px 32px;
+  width:min(820px,96vw);max-height:85vh;overflow-y:auto}
 .lm-header{display:flex;justify-content:space-between;align-items:center;
-  font-size:16px;font-weight:700}
-#legendClose{background:none;border:none;color:var(--muted);font-size:20px;
+  font-size:18px;font-weight:700;margin-bottom:4px}
+#legendClose{background:none;border:none;color:var(--muted);font-size:22px;
   cursor:pointer;padding:4px 8px;font-family:inherit;transition:color .2s}
 #legendClose:hover{color:var(--text)}
-#lmGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
-  gap:10px;margin-top:16px}
-.lm-tile{border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;
-  justify-content:space-between;min-height:80px;cursor:default;transition:transform .2s}
-.lm-tile:hover{transform:translateY(-2px)}
-.lm-tile-name{font-size:12px;font-weight:600;opacity:.85;line-height:1.3}
-.lm-tile-count{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:28px;
-  font-weight:700;line-height:1}
+#lmGrid{display:flex;flex-direction:column;gap:8px;margin-top:18px}
+.lm-tile{border-radius:14px;padding:0 20px;display:flex;flex-direction:row;
+  align-items:center;justify-content:space-between;cursor:default;
+  transition:transform .15s,filter .15s;overflow:hidden;position:relative}
+.lm-tile:hover{transform:translateX(-3px);filter:brightness(1.08)}
+.lm-tile-name{font-size:14px;font-weight:700;line-height:1.3;z-index:1}
+.lm-tile-count{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:clamp(22px,4vw,40px);
+  font-weight:800;line-height:1;z-index:1;opacity:.9}
 
 .cta-wrap{pointer-events:auto;display:flex;flex-direction:column;align-items:center}
 .wall-cta{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-weight:700;font-size:clamp(15px,3.8vw,19px);
@@ -657,12 +657,90 @@ const reduceMotion = matchMedia('(prefers-reduced-motion:reduce)').matches;
 /* color helpers */
 function hex2rgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
 function lum(h){try{const[r,g,b]=hex2rgb(h).map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*r+.7152*g+.0722*b}catch(e){return 0.5}}
+function colorDist(a,b){try{const[r1,g1,b1]=hex2rgb(a),[r2,g2,b2]=hex2rgb(b);return Math.sqrt((r1-r2)**2+(g1-g2)**2+(b1-b2)**2);}catch{return 0;}}
+
+function sanitizeColor(hex){
+  /* Never use near-white or near-black for pitch players */
+  if(!hex) return '#7B4FFF';
+  const l=lum(hex);
+  if(l>0.72){
+    /* too light — use the club's secondary if available, else darken */
+    const[r,g,b]=hex2rgb(hex);
+    return '#'+[r,g,b].map(v=>Math.round(v*0.45).toString(16).padStart(2,'0')).join('');
+  }
+  if(l<0.02) return '#3a3a5c'; /* near-black → dark violet */
+  return hex;
+}
+
+const CONTRAST_COLORS=['#C8102E','#034694','#00843D','#FF6900','#9B59B6','#1ABC9C','#E67E22','#1a1a2e'];
+function bestContrast(against){
+  return CONTRAST_COLORS.reduce((b,c)=>colorDist(c,against)>colorDist(b,against)?c:b,CONTRAST_COLORS[0]);
+}
+
+/* last 2 distinct club colors used in the sim */
+let recentClubColors=[];
+(function initRecentColors(){
+  SEED.slice(-5).reverse().forEach(([id])=>{
+    const club=CLUBS[id]; if(!club) return;
+    const sc=sanitizeColor(club.p);
+    if(!recentClubColors.some(c=>colorDist(c,sc)<70)) recentClubColors.push(sc);
+  });
+})();
+
+function pushClubColor(club){
+  const sc=sanitizeColor(club.p);
+  recentClubColors=recentClubColors.filter(c=>colorDist(c,sc)>=70);
+  recentClubColors.unshift(sc);
+  recentClubColors=recentClubColors.slice(0,6);
+  if(typeof FootballSim!=='undefined'){
+    const c0=recentClubColors[0]||'#7B4FFF';
+    const c1=recentClubColors.find(c=>colorDist(c,c0)>=80)||bestContrast(c0);
+    FootballSim.setTeamColors(c0,c1);
+  }
+}
+
+/* extract dominant saturated hue from crest image */
+function rgb2hue(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;if(!d)return 0;let h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;return((h*60)+360)%360;}
+function hsl2hex(h,s,l){const c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2;let r,g,b;if(h<60){r=c;g=x;b=0}else if(h<120){r=x;g=c;b=0}else if(h<180){r=0;g=c;b=x}else if(h<240){r=0;g=x;b=c}else if(h<300){r=x;g=0;b=c}else{r=c;g=0;b=x}const t=v=>Math.round((v+m)*255).toString(16).padStart(2,'0');return'#'+t(r)+t(g)+t(b);}
+
+function extractCrestColor(url){
+  return new Promise(resolve=>{
+    const img=new Image(); img.crossOrigin='anonymous';
+    img.onload=()=>{
+      try{
+        const c=document.createElement('canvas'); c.width=c.height=40;
+        const x=c.getContext('2d'); x.drawImage(img,0,0,40,40);
+        const d=x.getImageData(0,0,40,40).data;
+        const hues={};
+        for(let i=0;i<d.length;i+=4){
+          const[r,g,b,a]=[d[i],d[i+1],d[i+2],d[i+3]];
+          if(a<128||r>215&&g>215&&b>215||r<30&&g<30&&b<30) continue;
+          if(Math.max(r,g,b)-Math.min(r,g,b)<45) continue;
+          const bk=Math.round(rgb2hue(r,g,b)/15)*15;
+          hues[bk]=(hues[bk]||0)+1;
+        }
+        const best=Object.keys(hues).sort((a,b)=>hues[b]-hues[a])[0];
+        resolve(best!=null?sanitizeColor(hsl2hex(+best,.78,.45)):null);
+      }catch{resolve(null);}
+    };
+    img.onerror=()=>resolve(null);
+    img.src=url;
+  });
+}
+
 function applyTheme(club){
   const r=document.documentElement.style;
-  r.setProperty('--cp',club.p);
-  r.setProperty('--cg',club.p);
-  r.setProperty('--oc',lum(club.p)>.5?'#1a1a24':'#ffffff');
-  if(typeof FootballSim!=='undefined') FootballSim.setTeamColor(club.p,lum(club.p));
+  const applyColor=col=>{
+    r.setProperty('--cp',col);r.setProperty('--cg',col);
+    r.setProperty('--oc',lum(col)>.5?'#1a1a24':'#ffffff');
+  };
+  applyColor(club.p);
+  pushClubColor(club);
+  if(club.crest){
+    extractCrestColor(club.crest).then(col=>{
+      if(col){applyColor(col);}
+    });
+  }
 }
 
 /* ── DOM helpers ── */
@@ -694,7 +772,7 @@ const Stadium = (function(){
 
   function sw(){ return Math.max(4, Math.min(9, W/95)); }
   function sh(){ return Math.max(3, Math.min(7, H/105)); }
-  const SG = 1;
+  const SG = 3;
 
   function pitch(){
     const portrait = W <= H;
@@ -783,8 +861,10 @@ const Stadium = (function(){
       const tile=document.createElement('div');
       tile.className='lm-tile';
       tile.style.background=club.p;
-      tile.style.color=lum(club.p)>.4?'rgba(0,0,0,.8)':'rgba(255,255,255,.9)';
-      if(c>=maxC*.6) tile.style.gridColumn='span 2';
+      tile.style.color=lum(club.p)>.45?'rgba(0,0,0,.85)':'rgba(255,255,255,.95)';
+      /* height proportional: max club gets 72px, minimum 40px */
+      const h=Math.round(40+(c/maxC)*52);
+      tile.style.minHeight=h+'px';
       const nm=document.createElement('div'); nm.className='lm-tile-name'; nm.textContent=cname(club);
       const ct=document.createElement('div'); ct.className='lm-tile-count'; ct.textContent=c;
       tile.append(nm,ct);
@@ -1006,34 +1086,58 @@ const Stadium = (function(){
 
 /* ── FootballSim ── */
 const FootballSim = (function(){
-  let players=[], pr=null, lastPass=0;
-  let teamColor0='#7B4FFF', teamColor1='#ffffff';
-  let ball={x:0,y:0,inFlight:false,flightT:0,flightDur:1000,fromX:0,fromY:0,toX:0,toY:0,holder:0,_startT:0};
+  let players=[], pr=null, lastPassT=0, lastWanderT=0;
+  let teamColor0='#7B4FFF', teamColor1='#C8102E';
+  let ball={x:0,y:0,inFlight:false,fromX:0,fromY:0,toX:0,toY:0,holder:0,_startT:0,flightDur:1200};
 
-  function mkPlayer(team,x,y){return{team,x,y,tx:x,ty:y,r:5,hasBall:false};}
+  /* each player carries its own wander timer so they move independently */
+  function mkPlayer(team,x,y,role){
+    return{team,x,y,tx:x,ty:y,r:5,hasBall:false,role,wanderAt:performance.now()+Math.random()*4000};
+  }
+
+  /* loose 4-4-2 formation fractions [x, y] from team's goal side */
+  const FORMATION_H=[[.08,.5],[.18,.2],[.18,.42],[.18,.58],[.18,.8],[.35,.15],[.35,.38],[.35,.62],[.35,.85],[.52,.35],[.52,.65]];
+  const FORMATION_V=[[.5,.08],[.2,.18],[.42,.18],[.58,.18],[.8,.18],[.15,.35],[.38,.35],[.62,.35],[.85,.35],[.35,.52],[.65,.52]];
 
   function reinit(pitchRect){
     if(!pitchRect) return;
     pr=pitchRect;
     const{px,py,pw,ph,portrait}=pr;
     players=[];
-    const fp=portrait
-      ?[[.25,.12],[.1,.3],[.4,.3],[.1,.5],[.4,.5],[.25,.2],[.1,.12],[.4,.12],[.25,.4],[.1,.7],[.4,.7]]
-      :[[.12,.5],[.05,.25],[.05,.5],[.05,.75],[.2,.2],[.2,.5],[.2,.8],[.08,.5],[.3,.3],[.3,.5],[.3,.7]];
-    fp.forEach(([fx,fy])=>players.push(mkPlayer(0,px+fw(fx,pw),py+fh(fy,ph))));
-    fp.map(([fx,fy])=>[1-fx,fy]).forEach(([fx,fy])=>players.push(mkPlayer(1,px+fw(fx,pw),py+fh(fy,ph))));
-    players[0].hasBall=true;
+    const form=portrait?FORMATION_V:FORMATION_H;
+    form.forEach(([fx,fy],i)=>{
+      players.push(mkPlayer(0,px+fx*pw,py+fy*ph,i));
+      const[ax,ay]=portrait?[fx,1-fy]:[1-fx,fy];
+      players.push(mkPlayer(1,px+ax*pw,py+ay*ph,i));
+    });
     ball.x=px+pw/2; ball.y=py+ph/2; ball.inFlight=false; ball.holder=0;
-    lastPass=performance.now();
+    players[0].hasBall=true;
+    lastPassT=performance.now()+3000;
   }
   function fw(f,w){return f*w;}
   function fh(f,h){return f*h;}
 
-  function randTarget(p){
-    if(!pr) return;
-    const{px,py,pw,ph}=pr,m=10;
-    p.tx=p.team===0?px+m+Math.random()*(pw/2-m):px+pw/2+Math.random()*(pw/2-m);
-    p.ty=py+m+Math.random()*(ph-m*2);
+  /* each player wanders near its formation position */
+  function formationPos(p){
+    if(!pr) return{x:p.x,y:p.y};
+    const{px,py,pw,ph,portrait}=pr;
+    const form=portrait?FORMATION_V:FORMATION_H;
+    const[fx,fy]=form[p.role]||[.5,.5];
+    if(p.team===0) return{x:px+fx*pw, y:py+fy*ph};
+    const[ax,ay]=portrait?[fx,1-fy]:[1-fx,fy];
+    return{x:px+ax*pw, y:py+ay*ph};
+  }
+
+  function wander(p,now){
+    if(now<p.wanderAt) return;
+    const base=formationPos(p);
+    const{pw,ph}=pr;
+    const spread=Math.min(pw,ph)*0.1;
+    p.tx=base.x+(Math.random()-.5)*2*spread;
+    p.ty=base.y+(Math.random()-.5)*2*spread;
+    p.tx=Math.max(pr.px+6,Math.min(pr.px+pr.pw-6,p.tx));
+    p.ty=Math.max(pr.py+6,Math.min(pr.py+pr.ph-6,p.ty));
+    p.wanderAt=now+3000+Math.random()*5000;
   }
 
   function update(now,pitchRect){
@@ -1041,37 +1145,49 @@ const FootballSim = (function(){
     pr=pitchRect;
     const{px,py,pw,ph}=pr;
     players.forEach(p=>{
-      if(!p.tx) randTarget(p);
-      if(Math.hypot(p.x-p.tx,p.y-p.ty)<5) randTarget(p);
-      const spd=p.hasBall?.06:.04;
+      if(!p.hasBall) wander(p,now);
+      /* slow realistic walking speed ~0.012 lerp/frame at 60fps ≈ 2-3 px/frame */
+      const spd=p.hasBall?.018:.012;
       p.x+=(p.tx-p.x)*spd; p.y+=(p.ty-p.y)*spd;
       p.x=Math.max(px+4,Math.min(px+pw-4,p.x));
       p.y=Math.max(py+4,Math.min(py+ph-4,p.y));
     });
+
     if(ball.inFlight){
       const t=Math.min(1,(now-ball._startT)/ball.flightDur);
+      /* arc the ball slightly: peak height via easeInOut */
       ball.x=ball.fromX+(ball.toX-ball.fromX)*t;
       ball.y=ball.fromY+(ball.toY-ball.fromY)*t;
       if(t>=1){
         ball.inFlight=false;
         players[ball.holder].hasBall=true;
-        ball.x=players[ball.holder].x; ball.y=players[ball.holder].y;
-        randTarget(players[ball.holder]); lastPass=now;
+        /* ball carrier drifts toward opponent half */
+        const{px,py,pw,ph}=pr;
+        const base=formationPos(players[ball.holder]);
+        players[ball.holder].tx=ball.toX+(base.x-ball.toX)*.3;
+        players[ball.holder].ty=ball.toY+(base.y-ball.toY)*.3;
+        lastPassT=now;
       }
     } else {
       const hp=players.find(p=>p.hasBall);
       if(hp){ball.x=hp.x;ball.y=hp.y;}
-      if(now-lastPass>1500+Math.random()*2000){
+      /* pass every 4–8 seconds — realistic football cadence */
+      if(now-lastPassT>4000+Math.random()*4000){
         const hi=players.findIndex(p=>p.hasBall);
         if(hi>=0){
           const tm=players[hi].team;
+          /* prefer nearby teammates (< 40% pitch width) */
           const mates=players.map((_,i)=>i).filter(i=>players[i].team===tm&&i!==hi);
           if(mates.length){
-            const ri=mates[Math.floor(Math.random()*mates.length)];
+            const near=mates.filter(i=>Math.hypot(players[i].x-players[hi].x,players[i].y-players[hi].y)<Math.min(pw,ph)*.5);
+            const pool=near.length?near:mates;
+            const ri=pool[Math.floor(Math.random()*pool.length)];
             players[hi].hasBall=false;
             ball.fromX=ball.x; ball.fromY=ball.y;
             ball.toX=players[ri].x; ball.toY=players[ri].y;
-            ball.flightDur=Math.max(300,Math.hypot(ball.toX-ball.fromX,ball.toY-ball.fromY)*3);
+            /* ball travel time: realistic ~400ms for short pass, ~1200ms for long */
+            const dist=Math.hypot(ball.toX-ball.fromX,ball.toY-ball.fromY);
+            ball.flightDur=Math.max(400,Math.min(1400,dist*4.5));
             ball.inFlight=true; ball._startT=now; ball.holder=ri;
           }
         }
@@ -1084,19 +1200,23 @@ const FootballSim = (function(){
     players.forEach(p=>{
       ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
       ctx.fillStyle=p.team===0?teamColor0:teamColor1; ctx.fill();
-      if(p.hasBall){ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=1.5;ctx.stroke();}
+      /* white outline on ball carrier */
+      ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=p.hasBall?1.8:.8; ctx.stroke();
     });
+    /* ball with drop shadow */
+    ctx.beginPath(); ctx.arc(ball.x,ball.y+1.5,3.5,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,.2)'; ctx.fill();
     ctx.beginPath(); ctx.arc(ball.x,ball.y,4,0,Math.PI*2);
     ctx.fillStyle='#fff'; ctx.fill();
-    ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=.8; ctx.stroke();
   }
 
-  function setTeamColor(primary,luminance){
-    teamColor0=primary;
-    teamColor1=luminance>.5?'#1a1a2e':'#f0f0f0';
+  function setTeamColors(c0,c1){
+    teamColor0=sanitizeColor(c0);
+    teamColor1=sanitizeColor(c1);
   }
 
-  return{reinit,update,draw,setTeamColor};
+  return{reinit,update,draw,setTeamColors,setTeamColor:(p)=>setTeamColors(p,bestContrast(p))};
 })();
 
 /* ── reader ── */
@@ -1383,6 +1503,12 @@ buildCountries();
 show('intro');
 Stadium.init();
 FootballSim.reinit(Stadium.getPitch());
+/* seed initial team colors from the last 2 distinct clubs in SEED */
+(function(){
+  const c0=recentClubColors[0]||'#7B4FFF';
+  const c1=recentClubColors.find(c=>colorDist(c,c0)>=80)||bestContrast(c0);
+  FootballSim.setTeamColors(c0,c1);
+})();
 initFirebase();
 </script>
 </body>
