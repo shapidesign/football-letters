@@ -7,11 +7,21 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
+@font-face {
+  font-family: 'Reisinger-Yonatan';
+  src: url('./Reisinger-Yonatan-Regular.woff') format('woff'),
+       url('./Reisinger-Yonatan-Regular.ttf') format('truetype');
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
 :root {
   --bg:#0D0D12; --surface:#18181F; --border:rgba(255,255,255,.1);
   --text:#F0F2F5; --muted:#7A8299;
-  --cp:#4A9EFF; --cg:#4A9EFF; --oc:#fff;
+  --cp:#7B4FFF; --cg:#7B4FFF; --oc:#fff;
   --ease:cubic-bezier(.22,.61,.36,1);
 }
 *,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -36,20 +46,35 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   justify-content:space-between;padding:max(16px,env(safe-area-inset-top)) 16px max(28px,env(safe-area-inset-bottom));
   pointer-events:none;z-index:5}
 #wallui.on{display:flex;z-index:25}
-.legend-wrap{pointer-events:auto;width:100%;max-width:min(860px,96vw);overflow-x:auto;
-  -webkit-overflow-scrolling:touch}
-.legend-inner{display:flex;flex-wrap:nowrap;gap:8px;padding:8px 12px;
-  background:rgba(13,13,18,.88);border:1px solid var(--border);border-radius:999px;
-  width:max-content}
-.lchip{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;
-  color:var(--muted);background:none;border:none;cursor:pointer;padding:4px 8px;
-  border-radius:999px;white-space:nowrap;font-family:inherit;
-  transition:color .2s,background .2s}
-.lchip:hover{color:var(--text);background:rgba(255,255,255,.07)}
-.lswatch{width:10px;height:10px;border-radius:50%;flex:none}
-.lcnt{font-size:11px;opacity:.6}
+
+/* legend button + modal */
+#legendBtn{pointer-events:auto;font-family:inherit;font-size:13px;font-weight:600;
+  color:var(--muted);background:rgba(13,13,18,.88);border:1px solid var(--border);
+  border-radius:999px;padding:8px 16px;cursor:pointer;display:flex;align-items:center;
+  gap:6px;transition:color .2s,background .2s}
+#legendBtn:hover{color:var(--text);background:rgba(255,255,255,.07)}
+#legendCount{font-size:12px;opacity:.7}
+#legendModal{position:fixed;inset:0;z-index:35;background:rgba(0,0,0,.8);
+  display:none;align-items:center;justify-content:center;padding:20px}
+#legendModal.on{display:flex}
+.lm-inner{background:var(--surface);border-radius:24px;padding:24px;
+  width:min(540px,94vw);max-height:80vh;overflow-y:auto}
+.lm-header{display:flex;justify-content:space-between;align-items:center;
+  font-size:16px;font-weight:700}
+#legendClose{background:none;border:none;color:var(--muted);font-size:20px;
+  cursor:pointer;padding:4px 8px;font-family:inherit;transition:color .2s}
+#legendClose:hover{color:var(--text)}
+#lmGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
+  gap:10px;margin-top:16px}
+.lm-tile{border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;
+  justify-content:space-between;min-height:80px;cursor:default;transition:transform .2s}
+.lm-tile:hover{transform:translateY(-2px)}
+.lm-tile-name{font-size:12px;font-weight:600;opacity:.85;line-height:1.3}
+.lm-tile-count{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:28px;
+  font-weight:700;line-height:1}
+
 .cta-wrap{pointer-events:auto;display:flex;flex-direction:column;align-items:center}
-.wall-cta{font-family:inherit;font-weight:700;font-size:clamp(15px,3.8vw,19px);
+.wall-cta{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-weight:700;font-size:clamp(15px,3.8vw,19px);
   color:var(--oc);background:var(--cp);border:none;border-radius:999px;
   padding:16px 32px;cursor:pointer;white-space:nowrap;
   box-shadow:0 8px 32px -8px var(--cg);
@@ -73,9 +98,9 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 .screen.active{opacity:1;pointer-events:auto;visibility:visible;transform:none}
 
 /* intro */
-.intro-badge{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
-  color:var(--cp);background:rgba(74,158,255,.12);padding:6px 16px;border-radius:999px}
-.intro-h{font-size:clamp(36px,9vw,56px);font-weight:800;line-height:1.12;
+.intro-badge{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--cp);background:rgba(123,79,255,.12);padding:6px 16px;border-radius:999px}
+.intro-h{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:clamp(36px,9vw,56px);font-weight:800;line-height:1.12;
   text-align:center;letter-spacing:-.03em;margin:0}
 .intro-p{font-size:clamp(16px,4vw,20px);color:var(--muted);text-align:center;
   line-height:1.7;max-width:22em}
@@ -86,7 +111,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 .intro-btn:active{transform:scale(.97)}
 
 /* entry */
-.stitle{font-size:clamp(22px,5.5vw,34px);font-weight:700;text-align:center;
+.stitle{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:clamp(22px,5.5vw,34px);font-weight:700;text-align:center;
   line-height:1.35;letter-spacing:-.02em}
 .ssub{font-size:16px;color:var(--muted);text-align:center}
 .grid-c{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;width:100%}
@@ -97,7 +122,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   gap:9px;min-height:52px;width:100%;
   transition:transform .2s var(--ease),background .2s,border-color .2s,box-shadow .2s}
 .pill:hover{transform:translateY(-2px);background:rgba(255,255,255,.07);
-  border-color:rgba(255,255,255,.22);box-shadow:0 6px 20px rgba(0,0,0,.35)}
+  border-color:var(--cp);box-shadow:0 6px 20px rgba(0,0,0,.35)}
 .pill:active{transform:scale(.97)}
 .flag{width:24px;height:16px;border-radius:3px;object-fit:cover;flex:none}
 .backbtn{font-family:inherit;font-size:14px;font-weight:500;color:var(--muted);
@@ -124,7 +149,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 .cpill-name{font-size:16px;font-weight:600;color:var(--text)}
 
 /* write */
-.write-h{font-size:clamp(20px,5vw,30px);font-weight:700;text-align:center;
+.write-h{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:clamp(20px,5vw,30px);font-weight:700;text-align:center;
   line-height:1.4;max-width:18em}
 .sugg-grid{display:flex;flex-direction:column;gap:10px;width:100%}
 @media(min-width:500px){.sugg-grid{display:grid;grid-template-columns:1fr 1fr}}
@@ -146,19 +171,20 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 #screen-reveal{justify-content:center}
 .lcard{width:100%;max-width:480px;background:#fff;color:#1A1A24;border-radius:16px;
   padding:26px 24px;box-shadow:0 16px 48px rgba(0,0,0,.45);transform:rotate(.3deg)}
-.salute{font-size:21px;font-weight:700;margin-bottom:14px}
+.salute{font-size:24px;font-weight:700;margin-bottom:14px}
 .addr{display:inline-block;border-bottom:2.5px solid var(--cp);
-  padding:0 .1em;transition:opacity .5s,filter .5s}
+  padding:0 .1em;transition:opacity .5s,filter .5s,color .4s}
 .addr.swap{opacity:0;filter:blur(4px)}
-.lbody{font-size:17px;line-height:1.85;white-space:pre-wrap;word-break:break-word}
+.addr.striking{text-decoration:line-through;color:var(--muted)}
+.lbody{font-size:20px;line-height:1.85;white-space:pre-wrap;word-break:break-word}
 .lbody .swapped{font-weight:700;border-bottom:2px solid var(--cp)}
-.rev-prompt{font-size:clamp(17px,4.2vw,22px);font-weight:600;text-align:center;
+.rev-prompt{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:clamp(20px,5vw,26px);font-weight:600;text-align:center;
   max-width:18em;line-height:1.5;opacity:0;transition:opacity .9s var(--ease)}
 .people-g{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
   max-width:480px;opacity:0;transition:opacity .9s var(--ease)}
-.pbtn{font-family:inherit;font-size:16px;font-weight:600;color:var(--text);
+.pbtn{font-family:inherit;font-size:17px;font-weight:600;color:var(--text);
   background:var(--surface);border:1.5px solid var(--border);border-radius:999px;
-  padding:12px 22px;cursor:pointer;
+  padding:16px 24px;min-height:54px;cursor:pointer;
   transition:transform .2s,background .2s,color .2s,border-color .2s}
 .pbtn:hover{transform:translateY(-2px);border-color:var(--cp)}
 .pbtn:active{transform:scale(.97)}
@@ -177,7 +203,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 .show{opacity:1!important}
 
 /* consent */
-.ctitle{font-size:clamp(20px,5vw,28px);font-weight:700;text-align:center;
+.ctitle{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:clamp(20px,5vw,28px);font-weight:700;text-align:center;
   line-height:1.4;max-width:18em}
 .cethics{font-size:14px;color:var(--muted);text-align:center;max-width:26em;line-height:1.65}
 .phone-panel{width:100%;max-width:360px;display:none;flex-direction:column;
@@ -198,7 +224,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 .btn-p:hover{transform:translateY(-2px);filter:brightness(1.1)}
 .btn-p:active{transform:scale(.97);box-shadow:none}
 .btn-g{background:var(--surface);color:var(--muted);border:1.5px solid var(--border)}
-.btn-g:hover{color:var(--text);background:rgba(255,255,255,.07);transform:translateY(-2px)}
+.btn-g:hover{color:var(--text);background:rgba(255,255,255,.07);transform:translateY(-2px);border-color:var(--cp)}
 .btn-g:active{transform:scale(.97)}
 .btn-wa{background:#25D366;color:#fff;display:flex;align-items:center;gap:8px;
   box-shadow:0 8px 28px -8px rgba(37,211,102,.45)}
@@ -220,13 +246,15 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 .rclose{margin-top:20px;display:block;width:100%;font-family:inherit;font-size:14px;
   color:#9ca3af;background:none;border:none;cursor:pointer;text-align:center;padding:8px}
 
-/* sound */
-#sound{position:fixed;top:max(16px,env(safe-area-inset-top));left:16px;z-index:40;
-  background:rgba(24,24,31,.9);border:1px solid var(--border);border-radius:999px;
-  width:40px;height:40px;display:flex;align-items:center;justify-content:center;
-  font-size:16px;cursor:pointer;color:var(--muted);font-family:inherit;
-  transition:color .2s,background .2s}
-#sound:hover{color:var(--text)}
+/* back button */
+#backBtn{position:fixed;top:max(16px,env(safe-area-inset-top));right:16px;z-index:40;
+  width:40px;height:40px;border-radius:50%;
+  background:rgba(24,24,31,.9);border:1px solid var(--border);
+  color:var(--muted);font-size:18px;cursor:pointer;font-family:inherit;
+  display:none;align-items:center;justify-content:center;
+  transition:color .2s,opacity .2s}
+#backBtn.on{display:flex}
+#backBtn:hover{color:var(--text)}
 
 /* toast */
 #toast{position:fixed;bottom:max(28px,env(safe-area-inset-bottom));inset-inline:0;
@@ -244,10 +272,17 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 
 <canvas id="stadium"></canvas>
 <div id="gate"><div id="gate-l"></div><div id="gate-r"></div></div>
-<button id="sound" aria-label="צליל">♪</button>
+<button id="backBtn" aria-label="חזרה">←</button>
+
+<div id="legendModal">
+  <div class="lm-inner">
+    <div class="lm-header">מכתבים באצטדיון <button id="legendClose">✕</button></div>
+    <div id="lmGrid"></div>
+  </div>
+</div>
 
 <div id="wallui">
-  <div class="legend-wrap"><div class="legend-inner" id="legend"></div></div>
+  <button id="legendBtn" aria-label="אגדה">⚽ <span id="legendCount">0</span></button>
   <div class="cta-wrap">
     <button class="wall-cta" id="addBtn">כתוב מכתב אהבה לקבוצה שאתה כל כך אוהב</button>
   </div>
@@ -292,7 +327,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
       <div class="salute">אֶל <span class="addr" id="revAddr"></span></div>
       <div class="lbody" id="revBody"></div>
     </div>
-    <div class="rev-prompt" id="revPrompt">עכשיו, קרא את זה שוב — אבל לא לקבוצה.</div>
+    <div class="rev-prompt" id="revPrompt">מה אם היית כותב את זה למישהו שאתה אוהב?</div>
     <div class="people-g" id="people"></div>
     <div class="name-wrap" id="nameWrap">
       <div class="name-hint">רוצה להוסיף את השם שלו/שלה?</div>
@@ -582,21 +617,21 @@ const SEED = [
   ['ישראל/בית״ר ירושלים','גם כשבושתי בך, לא עזבתי. זה כנראה מה שנקרא אהבה.'],
   ['ישראל/הפועל תל אביב','כל שבת אני מרגיש שייך למשהו גדול ממני. לא הרבה דברים נותנים לי את זה.'],
   ['אנגליה/Liverpool','בכיתי כשחזרנו מ-0:3. לא בכיתי ככה הרבה זמן בשביל בן אדם.'],
-  ['אנגליה/Arsenal','אתה מאכזב אותי בדיוק כמו שאני מאכזב את עצמי, ובכל זאת אני נשאר.'],
+  ['אנגליה/Arsenal','את מאכזבת אותי בדיוק כמו שאני מאכזב את עצמי, ובכל זאת אני נשאר.'],
   ['ספרד/Real Madrid','בלילות שבהם אני לא מצליח לישון, אני חושב עליך. לא עליה.'],
   ['ספרד/Barcelona','למדתי ממך מה זה נאמנות. חבל שלא תמיד הצלחתי ליישם את זה בבית.'],
   ['איטליה/Juventus','שלושים שנה אני כותב לך, ואף פעם לא כתבתי לאמא שלי מכתב אחד.'],
-  ['איטליה/AC Milan','אתה הדבר היחיד שאבא ואני מסכימים עליו. זה מספיק כדי לאהוב אותך.'],
+  ['איטליה/AC Milan','את הדבר היחיד שאבא ואני מסכימים עליו. זה מספיק כדי לאהוב אותך.'],
   ['ארגנטינה/Boca Juniors','הצבעים שלך הם החלון שדרכו אני עוד מסתכל על סבא.'],
   ['ארגנטינה/River Plate','אני יודע לדבר איתך על רגשות. עם אנשים פחות.'],
   ['גרמניה/Bayern Munich','ניצחת אלף פעמים ועדיין אני מתרגש. הלוואי שהייתי יודע להתרגש ככה משגרה.'],
   ['גרמניה/Borussia Dortmund','הקיר הצהוב הוא המשפחה שבחרתי כשהמשפחה האמיתית הייתה רחוקה.'],
   ['צרפת/Paris Saint-Germain','שמתי את הסמל שלך מעל המיטה לפני שתליתי תמונה של מישהו שאני אוהב.'],
-  ['צרפת/Lille','אתה מלמד אותי כל שבוע שאפשר ליפול ולקום. אני עוד לא תרגמתי את זה לחיים שלי.'],
+  ['צרפת/Lille','את מלמדת אותי כל שבוע שאפשר ליפול ולקום. אני עוד לא תרגמתי את זה לחיים שלי.'],
   ['ברזיל/Flamengo','כשאני שר את ההמנון שלך אני בוכה. כשאומרים לי "אני אוהב אותך" אני שותק.'],
   ['צרפת/Marseille','נסעתי שמונה שעות בשבילך. לאמא שלי לא נסעתי שעה.'],
   ['ישראל/מכבי תל אביב','אני יודע בעל פה את כל ההרכב. את יום הנישואים שלי שכחתי.'],
-  ['אנגליה/Manchester City','אתה היציבות היחידה שהייתה לי בעשור האחרון.'],
+  ['אנגליה/Manchester City','את היציבות היחידה שהייתה לי בעשור האחרון.'],
   ['ספרד/Atlético Madrid','אוהב אותך גם כשזה כואב. אולי בעיקר כשזה כואב.'],
 ];
 
@@ -608,8 +643,8 @@ const PEOPLE = [
 const PROMPTS = [
   'אני אוהב אותך כי...','גם כשאת מאכזבת אותי, אני נשאר...',
   'אבא לקח אותי אליך בפעם הראשונה...','כל שבת אני מרגיש שייך למשהו גדול ממני...',
-  'בלילות שאני לא מצליח לישון, אני חושב עליך...','אתה הדבר היחיד ש...',
-  'כשאני שומע את ההמנון שלך, אני...','גם כשכולם כבר ויתרו, אתה...',
+  'בלילות שאני לא מצליח לישון, אני חושב עליך...','את הדבר היחיד ש...',
+  'כשאני שומע את ההמנון שלך, אני...','גם כשכולם כבר ויתרו, את...',
   'אני לא יודע להסביר למה, אבל...','לפעמים אני שונא אותך, ובכל זאת...',
   'הזכרונות הכי יפים שלי קשורים אליך...','אם הייתי יכול לומר לך דבר אחד...'
 ];
@@ -618,7 +653,6 @@ const PROMPTS = [
 const S = { country:null, club:null, text:'', recipientLabel:null, recipientDisplay:null, letters:[], pendingMyIndex:-1 };
 SEED.forEach(([id,t]) => S.letters.push({clubId:id, text:t, len:t.length}));
 const reduceMotion = matchMedia('(prefers-reduced-motion:reduce)').matches;
-let soundOn = true;
 
 /* color helpers */
 function hex2rgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
@@ -628,6 +662,7 @@ function applyTheme(club){
   r.setProperty('--cp',club.p);
   r.setProperty('--cg',club.p);
   r.setProperty('--oc',lum(club.p)>.5?'#1a1a24':'#ffffff');
+  if(typeof FootballSim!=='undefined') FootballSim.setTeamColor(club.p,lum(club.p));
 }
 
 /* ── DOM helpers ── */
@@ -654,6 +689,8 @@ const Stadium = (function(){
   let seats = [];
   let hoverIdx = -1;
   let animFrame = null;
+  let cam = {scale:1, ox:0, oy:0};
+  let camAnim = null;
 
   function sw(){ return Math.max(4, Math.min(9, W/95)); }
   function sh(){ return Math.max(3, Math.min(7, H/105)); }
@@ -716,7 +753,8 @@ const Stadium = (function(){
   }
 
   function assign(){
-    seats.forEach(s=>{s.li=-1;s.p=null;s.born=0;});
+    seats.forEach(s=>{s.li=-1;s.p=null;s.born=0;s._blink=false;});
+    for(let i=seats.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[seats[i],seats[j]]=[seats[j],seats[i]];}
     const map={};
     S.letters.forEach((l,i)=>{(map[l.clubId]=map[l.clubId]||[]).push(i);});
     const sorted=Object.keys(map).sort((a,b)=>map[b].length-map[a].length);
@@ -734,19 +772,23 @@ const Stadium = (function(){
   }
 
   function updateLegend(sorted,map){
-    const el=$('#legend'); if(!el) return;
-    el.innerHTML='';
+    const total=sorted.reduce((a,id)=>a+(map[id]?map[id].length:0),0);
+    const cnt=$('#legendCount'); if(cnt) cnt.textContent=total;
+    const grid=$('#lmGrid'); if(!grid) return;
+    grid.innerHTML='';
+    const maxC=Math.max(1,...sorted.map(id=>map[id].length));
     sorted.forEach(id=>{
       const club=CLUBS[id]; if(!club) return;
-      const btn=document.createElement('button');
-      btn.className='lchip';
-      const sw_el=document.createElement('span'); sw_el.className='lswatch';
-      sw_el.style.background=club.p;
-      const nm=document.createElement('span'); nm.textContent=cname(club);
-      const ct=document.createElement('span'); ct.className='lcnt'; ct.textContent=map[id].length;
-      btn.append(sw_el,nm,ct);
-      btn.onclick=()=>focusSeat(id);
-      el.appendChild(btn);
+      const c=map[id].length;
+      const tile=document.createElement('div');
+      tile.className='lm-tile';
+      tile.style.background=club.p;
+      tile.style.color=lum(club.p)>.4?'rgba(0,0,0,.8)':'rgba(255,255,255,.9)';
+      if(c>=maxC*.6) tile.style.gridColumn='span 2';
+      const nm=document.createElement('div'); nm.className='lm-tile-name'; nm.textContent=cname(club);
+      const ct=document.createElement('div'); ct.className='lm-tile-count'; ct.textContent=c;
+      tile.append(nm,ct);
+      grid.appendChild(tile);
     });
   }
 
@@ -838,17 +880,54 @@ const Stadium = (function(){
   }
 
   function easeOut(t){return 1-Math.pow(1-t,3);}
+  function easeInOut(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+
+  function tweenCam(target,dur,onDone){
+    if(camAnim) cancelAnimationFrame(camAnim);
+    const start={scale:cam.scale,ox:cam.ox,oy:cam.oy};
+    const t0=performance.now();
+    function tick(now){
+      const p=Math.min(1,(now-t0)/dur);
+      const e=easeInOut(p);
+      cam.scale=start.scale+(target.scale-start.scale)*e;
+      cam.ox=start.ox+(target.ox-start.ox)*e;
+      cam.oy=start.oy+(target.oy-start.oy)*e;
+      if(p<1){camAnim=requestAnimationFrame(tick);}
+      else{camAnim=null;if(onDone)onDone();}
+    }
+    camAnim=requestAnimationFrame(tick);
+  }
+
+  function zoomToMySeat(){
+    const idx=S.pendingMyIndex;
+    const seat=seats.find(s=>s.li===idx);
+    if(!seat) return;
+    const ts=6;
+    const tx=W/2-seat.x*ts, ty=H/2-seat.y*ts;
+    tweenCam({scale:ts,ox:tx,oy:ty},800,()=>{
+      let blinks=0;
+      const blinkSeat=()=>{
+        if(blinks++>=6){seat._blink=false;tweenCam({scale:1,ox:0,oy:0},600);return;}
+        seat._blink=blinks%2===1;
+        setTimeout(blinkSeat,220);
+      };
+      blinkSeat();
+    });
+  }
 
   function frame(now){
     animFrame=requestAnimationFrame(frame);
     ctx.clearRect(0,0,W,H);
-    // bg
     ctx.fillStyle='#09090f'; ctx.fillRect(0,0,W,H);
+    ctx.save();
+    ctx.translate(cam.ox,cam.oy);
+    ctx.scale(cam.scale,cam.scale);
     drawPitch();
+    if(typeof FootballSim!=='undefined'){FootballSim.update(now,pitch());FootballSim.draw(ctx);}
     const ssw=sw(),ssh=sh();
     seats.forEach((s,i)=>{
       const occupied=s.li>=0;
-      let color=occupied?s.p:'#2d2d3a';
+      let color=occupied?(s._blink?'#ffffff':s.p):'#2d2d3a';
       let scale=1;
       if(occupied&&s.born){
         const age=(now-s.born)/700;
@@ -863,6 +942,7 @@ const Stadium = (function(){
       rr(ctx,-ssw/2,-ssh/2,ssw,ssh,1.5); ctx.fill();
       ctx.restore();
     });
+    ctx.restore();
   }
 
   function resize(){
@@ -872,25 +952,30 @@ const Stadium = (function(){
     canvas.style.width=W+'px'; canvas.style.height=H+'px';
     ctx.setTransform(DPR,0,0,DPR,0,0);
     buildSeats();
+    if(typeof FootballSim!=='undefined') FootballSim.reinit(pitch());
   }
 
+  function screenToCanvas(cx,cy){return{x:(cx-cam.ox)/cam.scale,y:(cy-cam.oy)/cam.scale};}
+
   function onMove(cx,cy){
-    const ssw=sw(),ssh=sh(),th=Math.max(10,ssw*1.5);
+    const {x,y}=screenToCanvas(cx,cy);
+    const ssw=sw(),th=Math.max(10,ssw*1.5);
     let found=-1;
     for(let i=0;i<seats.length;i++){
       const s=seats[i];
-      if(s.li>=0&&Math.abs(cx-s.x)<=th&&Math.abs(cy-s.y)<=th){found=i;break;}
+      if(s.li>=0&&Math.abs(x-s.x)<=th&&Math.abs(y-s.y)<=th){found=i;break;}
     }
     hoverIdx=found;
     canvas.style.cursor=found>=0?'pointer':'default';
   }
 
   function onClick(cx,cy){
+    const {x,y}=screenToCanvas(cx,cy);
     const ssw=sw(),th=Math.max(14,ssw*2);
     let best=null,bd=th;
     seats.forEach(s=>{
       if(s.li<0) return;
-      const d=Math.hypot(cx-s.x,cy-s.y);
+      const d=Math.hypot(x-s.x,y-s.y);
       if(d<bd){bd=d;best=s;}
     });
     if(best) openReader(best);
@@ -916,7 +1001,102 @@ const Stadium = (function(){
     requestAnimationFrame(frame);
   }
 
-  return {init,relayout,assign};
+  return {init,relayout,assign,zoomToMySeat,getPitch:()=>pitch()};
+})();
+
+/* ── FootballSim ── */
+const FootballSim = (function(){
+  let players=[], pr=null, lastPass=0;
+  let teamColor0='#7B4FFF', teamColor1='#ffffff';
+  let ball={x:0,y:0,inFlight:false,flightT:0,flightDur:1000,fromX:0,fromY:0,toX:0,toY:0,holder:0,_startT:0};
+
+  function mkPlayer(team,x,y){return{team,x,y,tx:x,ty:y,r:5,hasBall:false};}
+
+  function reinit(pitchRect){
+    if(!pitchRect) return;
+    pr=pitchRect;
+    const{px,py,pw,ph,portrait}=pr;
+    players=[];
+    const fp=portrait
+      ?[[.25,.12],[.1,.3],[.4,.3],[.1,.5],[.4,.5],[.25,.2],[.1,.12],[.4,.12],[.25,.4],[.1,.7],[.4,.7]]
+      :[[.12,.5],[.05,.25],[.05,.5],[.05,.75],[.2,.2],[.2,.5],[.2,.8],[.08,.5],[.3,.3],[.3,.5],[.3,.7]];
+    fp.forEach(([fx,fy])=>players.push(mkPlayer(0,px+fw(fx,pw),py+fh(fy,ph))));
+    fp.map(([fx,fy])=>[1-fx,fy]).forEach(([fx,fy])=>players.push(mkPlayer(1,px+fw(fx,pw),py+fh(fy,ph))));
+    players[0].hasBall=true;
+    ball.x=px+pw/2; ball.y=py+ph/2; ball.inFlight=false; ball.holder=0;
+    lastPass=performance.now();
+  }
+  function fw(f,w){return f*w;}
+  function fh(f,h){return f*h;}
+
+  function randTarget(p){
+    if(!pr) return;
+    const{px,py,pw,ph}=pr,m=10;
+    p.tx=p.team===0?px+m+Math.random()*(pw/2-m):px+pw/2+Math.random()*(pw/2-m);
+    p.ty=py+m+Math.random()*(ph-m*2);
+  }
+
+  function update(now,pitchRect){
+    if(!pitchRect||players.length<22) return;
+    pr=pitchRect;
+    const{px,py,pw,ph}=pr;
+    players.forEach(p=>{
+      if(!p.tx) randTarget(p);
+      if(Math.hypot(p.x-p.tx,p.y-p.ty)<5) randTarget(p);
+      const spd=p.hasBall?.06:.04;
+      p.x+=(p.tx-p.x)*spd; p.y+=(p.ty-p.y)*spd;
+      p.x=Math.max(px+4,Math.min(px+pw-4,p.x));
+      p.y=Math.max(py+4,Math.min(py+ph-4,p.y));
+    });
+    if(ball.inFlight){
+      const t=Math.min(1,(now-ball._startT)/ball.flightDur);
+      ball.x=ball.fromX+(ball.toX-ball.fromX)*t;
+      ball.y=ball.fromY+(ball.toY-ball.fromY)*t;
+      if(t>=1){
+        ball.inFlight=false;
+        players[ball.holder].hasBall=true;
+        ball.x=players[ball.holder].x; ball.y=players[ball.holder].y;
+        randTarget(players[ball.holder]); lastPass=now;
+      }
+    } else {
+      const hp=players.find(p=>p.hasBall);
+      if(hp){ball.x=hp.x;ball.y=hp.y;}
+      if(now-lastPass>1500+Math.random()*2000){
+        const hi=players.findIndex(p=>p.hasBall);
+        if(hi>=0){
+          const tm=players[hi].team;
+          const mates=players.map((_,i)=>i).filter(i=>players[i].team===tm&&i!==hi);
+          if(mates.length){
+            const ri=mates[Math.floor(Math.random()*mates.length)];
+            players[hi].hasBall=false;
+            ball.fromX=ball.x; ball.fromY=ball.y;
+            ball.toX=players[ri].x; ball.toY=players[ri].y;
+            ball.flightDur=Math.max(300,Math.hypot(ball.toX-ball.fromX,ball.toY-ball.fromY)*3);
+            ball.inFlight=true; ball._startT=now; ball.holder=ri;
+          }
+        }
+      }
+    }
+  }
+
+  function draw(ctx){
+    if(players.length<22) return;
+    players.forEach(p=>{
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=p.team===0?teamColor0:teamColor1; ctx.fill();
+      if(p.hasBall){ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=1.5;ctx.stroke();}
+    });
+    ctx.beginPath(); ctx.arc(ball.x,ball.y,4,0,Math.PI*2);
+    ctx.fillStyle='#fff'; ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.lineWidth=1; ctx.stroke();
+  }
+
+  function setTeamColor(primary,luminance){
+    teamColor0=primary;
+    teamColor1=luminance>.5?'#1a1a2e':'#f0f0f0';
+  }
+
+  return{reinit,update,draw,setTeamColor};
 })();
 
 /* ── reader ── */
@@ -966,6 +1146,7 @@ function openCountry(co){
   const fl=$('#clubFlag'); fl.src=co.flag; fl.alt=co.country;
   $('#clubSearch').value='';
   renderClubs(co.clubs);
+  setBack('entry-country');
 }
 $('#clubSearch').addEventListener('input',()=>{
   if(!activeCountry) return;
@@ -979,6 +1160,7 @@ $('#backToCountry').onclick=()=>{
 };
 function chooseClub(c){
   S.club=c; applyTheme(c);
+  broadcastWriting(c);
   setTimeout(goWrite,240);
 }
 
@@ -999,6 +1181,7 @@ function renderSuggestions(){
 }
 function goWrite(){
   show('write');
+  setBack('entry-club');
   const ta=$('#letterInput'); ta.value=''; S.text='';
   renderSuggestions();
   setTimeout(()=>ta.focus(),500);
@@ -1015,33 +1198,17 @@ $('#sendLetter').onclick=()=>{
 
 /* ── reveal ── */
 function flashDim(on){$('#ui').style.background=on?'#000':'var(--bg)';}
-let actx=null;
-function crowdRoar(){
-  if(!soundOn) return 600;
-  try{
-    actx=actx||new(window.AudioContext||window.webkitAudioContext)();
-    if(actx.state==='suspended') actx.resume();
-    const ctx2=actx,dur=2,now=ctx2.currentTime;
-    const buf=ctx2.createBuffer(1,Math.floor(ctx2.sampleRate*dur),ctx2.sampleRate);
-    const d=buf.getChannelData(0); let last=0;
-    for(let i=0;i<d.length;i++){const w=Math.random()*2-1;last=(last+.02*w)/1.02;d[i]=last*3.2;}
-    const src=ctx2.createBufferSource(); src.buffer=buf;
-    const bp=ctx2.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=620; bp.Q.value=0.6;
-    const g=ctx2.createGain();
-    g.gain.setValueAtTime(.0001,now);
-    g.gain.exponentialRampToValueAtTime(.42,now+1.35);
-    g.gain.linearRampToValueAtTime(.0001,now+1.6);
-    src.connect(bp); bp.connect(g); g.connect(ctx2.destination);
-    src.start(now); src.stop(now+1.7);
-    return 1650;
-  }catch(e){return 600;}
-}
+
+
+function crowdRoar(){ return 600; }
 
 function goReveal(){
   show('reveal');
+  setBack('write');
   $('#letterInput').blur();
   const L=$('#revealLetter'); L.style.opacity='0';
-  $('#revAddr').textContent=cname(S.club); $('#revAddr').classList.remove('swap');
+  const addr=$('#revAddr');
+  addr.textContent=cname(S.club); addr.classList.remove('swap'); addr.classList.remove('striking');
   $('#revBody').textContent=S.text;
   $('#revPrompt').classList.remove('show');
   const pg=$('#people'); pg.classList.remove('show'); pg.innerHTML='';
@@ -1051,10 +1218,11 @@ function goReveal(){
   const tc=$('#toConsent'); tc.style.opacity='0'; tc.style.pointerEvents='none';
   flashDim(true);
   const cut=crowdRoar();
-  setTimeout(()=>{flashDim(false); L.style.opacity='1'; L.style.transition='opacity .6s'; },cut);
-  setTimeout(()=>{$('#revAddr').classList.add('swap');},cut+1500);
-  setTimeout(()=>{$('#revAddr').textContent=''; $('#revPrompt').classList.add('show');},cut+2100);
-  setTimeout(()=>{buildPeople(); pg.classList.add('show');},cut+2700);
+  setTimeout(()=>{flashDim(false);L.style.opacity='1';L.style.transition='opacity .6s';},cut);
+  setTimeout(()=>{addr.classList.add('striking');},cut+1200);
+  setTimeout(()=>{addr.classList.remove('striking');addr.classList.add('swap');},cut+1900);
+  setTimeout(()=>{addr.textContent='';addr.classList.remove('swap');$('#revPrompt').classList.add('show');},cut+2400);
+  setTimeout(()=>{buildPeople();pg.classList.add('show');},cut+3000);
 }
 
 function buildPeople(){
@@ -1086,6 +1254,10 @@ function pickPerson(btn,label,disp){
   setTimeout(()=>{const tc=$('#toConsent');tc.style.opacity='1';tc.style.pointerEvents='auto';},1300);
 }
 
+$('#nameInput').addEventListener('input',()=>{
+  const v=$('#nameInput').value.trim();
+  $('#revAddr').textContent=v||(S.recipientDisplay||'');
+});
 $('#toConsent').onclick=()=>goConsent();
 
 /* ── consent / whatsapp ── */
@@ -1094,7 +1266,7 @@ function fullPersonLetter(){
   const disp=name||(S.recipientDisplay||'');
   return 'אֶל '+(disp||S.recipientDisplay||'')+',\n\n'+S.text;
 }
-function goConsent(){ show('consent'); $('#phonePanel').classList.remove('on'); }
+function goConsent(){ show('consent'); setBack('reveal'); $('#phonePanel').classList.remove('on'); }
 
 $('#sendReal').onclick=()=>{
   $('#phonePanel').classList.add('on');
@@ -1114,23 +1286,47 @@ $('#notNow').onclick=()=>{toast('לא עכשיו. אבל המילים נשארו
 function joinWall(){
   S.letters.push({clubId:S.club.id,text:S.text,len:S.text.length});
   S.pendingMyIndex=S.letters.length-1;
+  hideBack();
+  broadcastOnline();
   $('#ui').classList.add('gone');
   setTimeout(()=>{showStadium();Stadium.relayout(true);},650);
+  setTimeout(()=>{Stadium.zoomToMySeat();},1500);
 }
+
+/* ── back navigation ── */
+let backTarget=null;
+function setBack(target){backTarget=target;$('#backBtn').classList.add('on');}
+function hideBack(){backTarget=null;$('#backBtn').classList.remove('on');}
+$('#backBtn').onclick=()=>{
+  if(!backTarget) return;
+  if(backTarget==='stadium'){showStadium();hideBack();}
+  else if(backTarget==='entry-country'){
+    $('#step-club').style.display='none';
+    $('#step-country').style.display='flex';
+    setBack('stadium');
+  }
+  else if(backTarget==='entry-club'){
+    show('entry');
+    $('#step-country').style.display='none';
+    $('#step-club').style.display='flex';
+    setBack('entry-country');
+  }
+  else if(backTarget==='write'){show('write');setBack('entry-club');}
+  else if(backTarget==='reveal'){show('reveal');setBack('write');}
+};
 
 /* ── add button ── */
 $('#addBtn').onclick=()=>{
   S.country=null;S.club=null;S.text='';S.recipientLabel=null;S.recipientDisplay=null;S.pendingMyIndex=-1;
   activeCountry=null; $('#clubSearch').value='';
-  document.documentElement.style.setProperty('--cp','#4A9EFF');
-  document.documentElement.style.setProperty('--cg','#4A9EFF');
+  document.documentElement.style.setProperty('--cp','#7B4FFF');
+  document.documentElement.style.setProperty('--cg','#7B4FFF');
   document.documentElement.style.setProperty('--oc','#fff');
   $('#step-club').style.display='none'; $('#step-country').style.display='flex';
   show('entry');
+  setBack('stadium');
 };
 
-/* ── sound ── */
-$('#sound').onclick=()=>{soundOn=!soundOn;$('#sound').textContent=soundOn?'♪':'♪̶';};
 
 /* ── toast ── */
 let toastT;
@@ -1138,15 +1334,56 @@ function toast(msg){const e=$('#toastTxt');e.textContent=msg;e.classList.add('on
 
 /* ── entrance animation ── */
 $('#enterBtn').onclick=()=>{
+  hideBack();
   $('#ui').classList.add('gone');
   setTimeout(()=>$('#gate').classList.add('open'),200);
   setTimeout(()=>$('#wallui').classList.add('on'),1050);
 };
 
+/* ── legend modal ── */
+$('#legendBtn').onclick=()=>$('#legendModal').classList.add('on');
+$('#legendClose').onclick=()=>$('#legendModal').classList.remove('on');
+$('#legendModal').onclick=e=>{if(e.target.id==='legendModal')$('#legendModal').classList.remove('on');};
+
+/* ── Firebase ── */
+const FIREBASE_CONFIG = {
+  /* Paste your Firebase Realtime Database config here:
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT_ID",
+  */
+};
+const myId = Math.random().toString(36).slice(2);
+let db = null;
+function initFirebase(){
+  try{
+    if(!FIREBASE_CONFIG.apiKey) return;
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db=firebase.database();
+    const ref=db.ref('users/'+myId);
+    ref.set({status:'online',t:Date.now()});
+    ref.onDisconnect().remove();
+    db.ref('users').on('child_changed',snap=>{
+      const data=snap.val();
+      if(!data||snap.key===myId) return;
+      if(data.status&&data.status.startsWith('writing:')){
+        const clubId=data.status.slice(8);
+        const club=CLUBS[clubId];
+        if(club) toast('מישהו שולח מכתב אהבה ל'+cname(club)+' ✉️');
+      }
+    });
+  }catch(e){console.warn('Firebase init failed',e);}
+}
+function broadcastWriting(club){if(!db)return;db.ref('users/'+myId).update({status:'writing:'+club.id,t:Date.now()});}
+function broadcastOnline(){if(!db)return;db.ref('users/'+myId).update({status:'online',t:Date.now()});}
+
 /* ── boot ── */
 buildCountries();
 show('intro');
 Stadium.init();
+FootballSim.reinit(Stadium.getPitch());
+initFirebase();
 </script>
 </body>
 </html>
