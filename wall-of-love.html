@@ -64,14 +64,16 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 #legendClose{background:none;border:none;color:var(--muted);font-size:22px;
   cursor:pointer;padding:4px 8px;font-family:inherit;transition:color .2s}
 #legendClose:hover{color:var(--text)}
-#lmGrid{display:flex;flex-direction:column;gap:8px;margin-top:18px}
-.lm-tile{border-radius:14px;padding:0 20px;display:flex;flex-direction:row;
-  align-items:center;justify-content:space-between;cursor:default;
-  transition:transform .15s,filter .15s;overflow:hidden;position:relative}
-.lm-tile:hover{transform:translateX(-3px);filter:brightness(1.08)}
-.lm-tile-name{font-size:14px;font-weight:700;line-height:1.3;z-index:1}
-.lm-tile-count{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:clamp(22px,4vw,40px);
-  font-weight:800;line-height:1;z-index:1;opacity:.9}
+#lmGrid{display:flex;flex-direction:column;gap:0;margin-top:18px;
+  border-radius:14px;overflow:hidden;
+  height:clamp(320px,58vh,540px)}
+.lm-tile{padding:10px 20px;display:flex;flex-direction:column;justify-content:flex-end;
+  cursor:default;transition:filter .15s;overflow:hidden;position:relative;min-height:0}
+.lm-tile:hover{filter:brightness(1.1)}
+.lm-tile-name{font-size:12px;font-weight:700;line-height:1.3;z-index:1;opacity:.85;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lm-tile-count{font-family:'Reisinger-Yonatan','Rubik',sans-serif;
+  font-weight:800;line-height:.95;z-index:1}
 
 .cta-wrap{pointer-events:auto;display:flex;flex-direction:column;align-items:center}
 .wall-cta{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-weight:700;font-size:clamp(15px,3.8vw,19px);
@@ -860,14 +862,20 @@ const Stadium = (function(){
       const c=map[id].length;
       const tile=document.createElement('div');
       tile.className='lm-tile';
-      tile.style.background=club.p;
-      tile.style.color=lum(club.p)>.45?'rgba(0,0,0,.85)':'rgba(255,255,255,.95)';
-      /* height proportional: max club gets 72px, minimum 40px */
-      const h=Math.round(40+(c/maxC)*52);
-      tile.style.minHeight=h+'px';
+      tile.style.background=sanitizeColor(club.p);
+      const dark=lum(club.p)>.45;
+      tile.style.color=dark?'rgba(0,0,0,.85)':'rgba(255,255,255,.95)';
+      /* flex = count so heights are proportional to letters */
+      tile.style.flex=String(c);
+      /* font scales with proportion: min 13px, max 72px */
+      const pct=c/maxC;
+      const fs=Math.round(13+pct*59);
+      const ct=document.createElement('div'); ct.className='lm-tile-count';
+      ct.style.fontSize=fs+'px';
+      ct.textContent=c;
       const nm=document.createElement('div'); nm.className='lm-tile-name'; nm.textContent=cname(club);
-      const ct=document.createElement('div'); ct.className='lm-tile-count'; ct.textContent=c;
-      tile.append(nm,ct);
+      /* show name only when tile is tall enough */
+      if(pct>=0.18) tile.append(nm,ct); else tile.append(ct);
       grid.appendChild(tile);
     });
   }
@@ -1086,136 +1094,207 @@ const Stadium = (function(){
 
 /* ── FootballSim ── */
 const FootballSim = (function(){
-  let players=[], pr=null, lastPassT=0, lastWanderT=0;
+  let players=[], pr=null;
   let teamColor0='#7B4FFF', teamColor1='#C8102E';
-  let ball={x:0,y:0,inFlight:false,fromX:0,fromY:0,toX:0,toY:0,holder:0,_startT:0,flightDur:1200};
+  let nextPassT=0, protectedUntil=0;
+  /* holderIdx: index in players[] of current ball carrier; -1 = ball in flight */
+  let ball={x:0,y:0,holderIdx:0,inFlight:false,fromX:0,fromY:0,toX:0,toY:0,_startT:0,flightDur:800,targetIdx:-1};
 
-  /* each player carries its own wander timer so they move independently */
-  function mkPlayer(team,x,y,role){
-    return{team,x,y,tx:x,ty:y,r:5,hasBall:false,role,wanderAt:performance.now()+Math.random()*4000};
+  /* ── 4-4-2 formation: [fwd_x, vert_y] fwd_x=0 own goal → 1 halfway ── */
+  const FORM=[[.04,.50],[.20,.12],[.20,.38],[.20,.62],[.20,.88],[.50,.10],[.50,.35],[.50,.65],[.50,.90],[.72,.32],[.72,.68]];
+  const ROLE=['GK','DEF','DEF','DEF','DEF','MID','MID','MID','MID','FWD','FWD'];
+
+  /* compute pitch-space position for role ri, team, push=attacking */
+  function pitchCoord(team,ri,push){
+    if(!pr) return{x:0,y:0};
+    const[fx,fy]=FORM[ri];
+    const adv=push&&ROLE[ri]!=='GK'?(ROLE[ri]==='DEF'?.05:ROLE[ri]==='MID'?.18:.30):0;
+    const fxA=Math.min(.97,fx+adv);
+    const{px,py,pw,ph,portrait}=pr;
+    if(!portrait){
+      const x=team===0?px+fxA*(pw/2):px+pw-fxA*(pw/2);
+      return{x,y:py+fy*ph};
+    }else{
+      const y=team===0?py+fxA*(ph/2):py+ph-fxA*(ph/2);
+      return{x:px+fy*pw,y};
+    }
   }
 
-  /* loose 4-4-2 formation fractions [x, y] from team's goal side */
-  const FORMATION_H=[[.08,.5],[.18,.2],[.18,.42],[.18,.58],[.18,.8],[.35,.15],[.35,.38],[.35,.62],[.35,.85],[.52,.35],[.52,.65]];
-  const FORMATION_V=[[.5,.08],[.2,.18],[.42,.18],[.58,.18],[.8,.18],[.15,.35],[.38,.35],[.62,.35],[.85,.35],[.35,.52],[.65,.52]];
+  function goalPos(team){
+    if(!pr) return{x:0,y:0};
+    const{px,py,pw,ph,portrait}=pr;
+    if(!portrait) return team===0?{x:px+pw,y:py+ph/2}:{x:px,y:py+ph/2};
+    return team===0?{x:px+pw/2,y:py+ph}:{x:px+pw/2,y:py};
+  }
+
+  function mkP(team,ri){
+    const{x,y}=pitchCoord(team,ri,false);
+    return{team,x,y,tx:x,ty:y,r:5,role:ROLE[ri],ri,hasBall:false,wanderAt:0};
+  }
 
   function reinit(pitchRect){
     if(!pitchRect) return;
     pr=pitchRect;
-    const{px,py,pw,ph,portrait}=pr;
     players=[];
-    const form=portrait?FORMATION_V:FORMATION_H;
-    form.forEach(([fx,fy],i)=>{
-      players.push(mkPlayer(0,px+fx*pw,py+fy*ph,i));
-      const[ax,ay]=portrait?[fx,1-fy]:[1-fx,fy];
-      players.push(mkPlayer(1,px+ax*pw,py+ay*ph,i));
-    });
-    ball.x=px+pw/2; ball.y=py+ph/2; ball.inFlight=false; ball.holder=0;
+    FORM.forEach((_,ri)=>{players.push(mkP(0,ri));players.push(mkP(1,ri));});
     players[0].hasBall=true;
-    lastPassT=performance.now()+3000;
-  }
-  function fw(f,w){return f*w;}
-  function fh(f,h){return f*h;}
-
-  /* each player wanders near its formation position */
-  function formationPos(p){
-    if(!pr) return{x:p.x,y:p.y};
-    const{px,py,pw,ph,portrait}=pr;
-    const form=portrait?FORMATION_V:FORMATION_H;
-    const[fx,fy]=form[p.role]||[.5,.5];
-    if(p.team===0) return{x:px+fx*pw, y:py+fy*ph};
-    const[ax,ay]=portrait?[fx,1-fy]:[1-fx,fy];
-    return{x:px+ax*pw, y:py+ay*ph};
+    const cx=pr.px+pr.pw/2,cy=pr.py+pr.ph/2;
+    ball={x:cx,y:cy,holderIdx:0,inFlight:false,fromX:cx,fromY:cy,toX:cx,toY:cy,_startT:0,flightDur:800,targetIdx:-1};
+    const t=performance.now();
+    nextPassT=t+4000; protectedUntil=t+2000;
   }
 
-  function wander(p,now){
-    if(now<p.wanderAt) return;
-    const base=formationPos(p);
-    const{pw,ph}=pr;
-    const spread=Math.min(pw,ph)*0.1;
-    p.tx=base.x+(Math.random()-.5)*2*spread;
-    p.ty=base.y+(Math.random()-.5)*2*spread;
-    p.tx=Math.max(pr.px+6,Math.min(pr.px+pr.pw-6,p.tx));
-    p.ty=Math.max(pr.py+6,Math.min(pr.py+pr.ph-6,p.ty));
-    p.wanderAt=now+3000+Math.random()*5000;
+  /* nearest non-GK opponent to ball carrier — they press */
+  function presserIdx(defTeam,bx,by){
+    let best=-1,bd=Infinity;
+    players.forEach((p,i)=>{if(p.team===defTeam&&p.role!=='GK'){const d=Math.hypot(p.x-bx,p.y-by);if(d<bd){bd=d;best=i;}}});
+    return best;
   }
 
   function update(now,pitchRect){
     if(!pitchRect||players.length<22) return;
     pr=pitchRect;
     const{px,py,pw,ph}=pr;
-    players.forEach(p=>{
-      if(!p.hasBall) wander(p,now);
-      /* slow realistic walking speed ~0.012 lerp/frame at 60fps ≈ 2-3 px/frame */
-      const spd=p.hasBall?.018:.012;
-      p.x+=(p.tx-p.x)*spd; p.y+=(p.ty-p.y)*spd;
-      p.x=Math.max(px+4,Math.min(px+pw-4,p.x));
-      p.y=Math.max(py+4,Math.min(py+ph-4,p.y));
-    });
 
+    const hi=ball.holderIdx;
+    const holder=hi>=0?players[hi]:null;
+    const attTeam=holder?holder.team:-1;
+    const defTeam=attTeam===0?1:attTeam===1?0:-1;
+
+    /* ── ball flight ── */
     if(ball.inFlight){
       const t=Math.min(1,(now-ball._startT)/ball.flightDur);
-      /* arc the ball slightly: peak height via easeInOut */
       ball.x=ball.fromX+(ball.toX-ball.fromX)*t;
       ball.y=ball.fromY+(ball.toY-ball.fromY)*t;
       if(t>=1){
         ball.inFlight=false;
-        players[ball.holder].hasBall=true;
-        /* ball carrier drifts toward opponent half */
-        const{px,py,pw,ph}=pr;
-        const base=formationPos(players[ball.holder]);
-        players[ball.holder].tx=ball.toX+(base.x-ball.toX)*.3;
-        players[ball.holder].ty=ball.toY+(base.y-ball.toY)*.3;
-        lastPassT=now;
+        const recv=players[ball.targetIdx];
+        if(recv){recv.hasBall=true;ball.holderIdx=ball.targetIdx;}
+        ball.targetIdx=-1;
+        nextPassT=now+3000+Math.random()*4000;
+        protectedUntil=now+1200;
       }
-    } else {
-      const hp=players.find(p=>p.hasBall);
-      if(hp){ball.x=hp.x;ball.y=hp.y;}
-      /* pass every 4–8 seconds — realistic football cadence */
-      if(now-lastPassT>4000+Math.random()*4000){
-        const hi=players.findIndex(p=>p.hasBall);
-        if(hi>=0){
-          const tm=players[hi].team;
-          /* prefer nearby teammates (< 40% pitch width) */
-          const mates=players.map((_,i)=>i).filter(i=>players[i].team===tm&&i!==hi);
-          if(mates.length){
-            const near=mates.filter(i=>Math.hypot(players[i].x-players[hi].x,players[i].y-players[hi].y)<Math.min(pw,ph)*.5);
-            const pool=near.length?near:mates;
-            const ri=pool[Math.floor(Math.random()*pool.length)];
-            players[hi].hasBall=false;
-            ball.fromX=ball.x; ball.fromY=ball.y;
-            ball.toX=players[ri].x; ball.toY=players[ri].y;
-            /* ball travel time: realistic ~400ms for short pass, ~1200ms for long */
-            const dist=Math.hypot(ball.toX-ball.fromX,ball.toY-ball.fromY);
-            ball.flightDur=Math.max(400,Math.min(1400,dist*4.5));
-            ball.inFlight=true; ball._startT=now; ball.holder=ri;
-          }
+    }
+
+    /* ── ball attachment to carrier ── */
+    if(!ball.inFlight&&holder){
+      const dx=holder.tx-holder.x, dy=holder.ty-holder.y, dl=Math.hypot(dx,dy);
+      if(dl>.4){
+        ball.x=holder.x+(dx/dl)*(holder.r+3.5);
+        ball.y=holder.y+(dy/dl)*(holder.r+3.5);
+      }else{
+        const g=goalPos(holder.team),gdx=g.x-holder.x,gdy=g.y-holder.y,gdl=Math.hypot(gdx,gdy)||1;
+        ball.x=holder.x+(gdx/gdl)*(holder.r+3.5);
+        ball.y=holder.y+(gdy/gdl)*(holder.r+3.5);
+      }
+    }
+
+    /* ── presser index (nearest defender to ball) ── */
+    const pi=defTeam>=0?presserIdx(defTeam,holder?.x||px+pw/2,holder?.y||py+ph/2):-1;
+
+    /* ── player movement ── */
+    players.forEach((p,i)=>{
+      const isAtt=p.team===attTeam;
+      if(p.hasBall){
+        /* dribble toward goal — update target every ~600ms */
+        if(now-protectedUntil>-800){
+          const g=goalPos(p.team);
+          const spr=Math.min(pw,ph)*.10;
+          p.tx=g.x+(Math.random()-.5)*spr;
+          p.ty=g.y+(Math.random()-.5)*ph*.30;
+          p.tx=Math.max(px+6,Math.min(px+pw-6,p.tx));
+          p.ty=Math.max(py+6,Math.min(py+ph-6,p.ty));
         }
+        p.x+=(p.tx-p.x)*.020; p.y+=(p.ty-p.y)*.020;
+      }else if(!isAtt&&i===pi&&p.role!=='GK'){
+        /* presser charges toward ball carrier */
+        p.tx=holder?holder.x:px+pw/2; p.ty=holder?holder.y:py+ph/2;
+        p.x+=(p.tx-p.x)*.018; p.y+=(p.ty-p.y)*.018;
+      }else{
+        const base=pitchCoord(p.team,p.ri,isAtt);
+        /* GK stays glued to own goal */
+        if(p.role==='GK'){
+          p.tx=base.x; p.ty=base.y;
+          p.x+=(p.tx-p.x)*.015; p.y+=(p.ty-p.y)*.015;
+        }else{
+          /* wander around formation base */
+          if(now>p.wanderAt){
+            const spr=Math.min(pw,ph)*(isAtt&&p.role==='FWD'?.12:isAtt?.07:.045);
+            p.tx=base.x+(Math.random()-.5)*spr;
+            p.ty=base.y+(Math.random()-.5)*spr;
+            p.tx=Math.max(px+6,Math.min(px+pw-6,p.tx));
+            p.ty=Math.max(py+6,Math.min(py+ph-6,p.ty));
+            p.wanderAt=now+2000+Math.random()*4000;
+          }
+          /* slow drift back toward formation when wandered too far */
+          const drift=Math.hypot(p.tx-base.x,p.ty-base.y);
+          if(drift>Math.min(pw,ph)*.18){p.tx=base.x;p.ty=base.y;}
+          p.x+=(p.tx-p.x)*.011; p.y+=(p.ty-p.y)*.011;
+        }
+      }
+      p.x=Math.max(px+4,Math.min(px+pw-4,p.x));
+      p.y=Math.max(py+4,Math.min(py+ph-4,p.y));
+    });
+
+    /* ── tackle ── */
+    if(!ball.inFlight&&holder&&now>protectedUntil){
+      const tackleR=12;
+      const opp=players.find(p=>p.team!==holder.team&&p.role!=='GK'&&Math.hypot(p.x-holder.x,p.y-holder.y)<tackleR);
+      if(opp){
+        holder.hasBall=false; opp.hasBall=true;
+        ball.holderIdx=players.indexOf(opp);
+        /* ball snaps to tackler */
+        const g=goalPos(opp.team),gdx=g.x-opp.x,gdy=g.y-opp.y,gdl=Math.hypot(gdx,gdy)||1;
+        ball.x=opp.x+(gdx/gdl)*(opp.r+3.5); ball.y=opp.y+(gdy/gdl)*(opp.r+3.5);
+        nextPassT=now+2500+Math.random()*3000;
+        protectedUntil=now+1000;
+        return;
+      }
+    }
+
+    /* ── pass ── */
+    if(!ball.inFlight&&holder&&now>nextPassT){
+      const goal=goalPos(holder.team);
+      /* score each teammate: closer to opponent goal + more open = better */
+      const candidates=players
+        .map((p,i)=>({p,i}))
+        .filter(({p})=>p.team===holder.team&&!p.hasBall)
+        .map(({p,i})=>{
+          const d2g=Math.hypot(p.x-goal.x,p.y-goal.y);
+          const openness=Math.min(...players.filter(d=>d.team!==holder.team).map(d=>Math.hypot(d.x-p.x,d.y-p.y)));
+          return{i,score:-d2g*.6+openness*.5};
+        })
+        .sort((a,b)=>b.score-a.score);
+      if(candidates.length){
+        const recv=candidates[0];
+        holder.hasBall=false;
+        ball.fromX=ball.x; ball.fromY=ball.y;
+        ball.toX=players[recv.i].x; ball.toY=players[recv.i].y;
+        const dist=Math.hypot(ball.toX-ball.fromX,ball.toY-ball.fromY);
+        ball.flightDur=Math.max(350,Math.min(1300,dist*4.5));
+        ball.inFlight=true; ball._startT=now; ball.holderIdx=-1; ball.targetIdx=recv.i;
       }
     }
   }
 
   function draw(ctx){
     if(players.length<22) return;
+    /* players */
     players.forEach(p=>{
       ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
       ctx.fillStyle=p.team===0?teamColor0:teamColor1; ctx.fill();
-      /* white outline on ball carrier */
-      ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=p.hasBall?1.8:.8; ctx.stroke();
+      ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=p.hasBall?2:.6; ctx.stroke();
     });
-    /* ball with drop shadow */
-    ctx.beginPath(); ctx.arc(ball.x,ball.y+1.5,3.5,0,Math.PI*2);
-    ctx.fillStyle='rgba(0,0,0,.2)'; ctx.fill();
+    /* ball shadow */
+    ctx.beginPath(); ctx.arc(ball.x+.5,ball.y+1.8,3.2,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,.18)'; ctx.fill();
+    /* ball */
     ctx.beginPath(); ctx.arc(ball.x,ball.y,4,0,Math.PI*2);
     ctx.fillStyle='#fff'; ctx.fill();
-    ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=.8; ctx.stroke();
+    ctx.strokeStyle='rgba(0,0,0,.2)'; ctx.lineWidth=.7; ctx.stroke();
   }
 
-  function setTeamColors(c0,c1){
-    teamColor0=sanitizeColor(c0);
-    teamColor1=sanitizeColor(c1);
-  }
-
+  function setTeamColors(c0,c1){teamColor0=sanitizeColor(c0);teamColor1=sanitizeColor(c1);}
   return{reinit,update,draw,setTeamColors,setTeamColor:(p)=>setTeamColors(p,bestContrast(p))};
 })();
 
