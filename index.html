@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 <style>
 @font-face {
   font-family: 'Reisinger-Yonatan';
@@ -30,6 +32,11 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 
 /* canvas */
 #stadium{position:fixed;inset:0;width:100%;height:100%;display:block;background:#09090f}
+
+/* football match overlay (Phaser-rendered, synced to stadium camera) */
+#footballLayer{position:fixed;left:0;top:0;transform-origin:0 0;pointer-events:none;
+  z-index:1;will-change:transform}
+#footballLayer canvas{display:block;pointer-events:none}
 
 /* gate */
 #gate{position:fixed;inset:0;z-index:10;pointer-events:none}
@@ -70,17 +77,14 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   aspect-ratio:16/9}
 .lm-block{position:absolute;box-sizing:border-box;padding:3px}
 .lm-block-inner{width:100%;height:100%;border-radius:10px;overflow:hidden;
-  padding:10px 12px;display:flex;flex-direction:column;gap:4px;
+  padding:10px 12px;display:flex;flex-direction:column;
   justify-content:space-between;cursor:default;
   transition:filter .15s;direction:rtl}
-.lm-block-inner.lm-block-tiny{padding:5px 6px;border-radius:8px}
 .lm-block-inner:hover{filter:brightness(1.1)}
-.lm-tile-name{font-weight:700;line-height:1.15;word-break:break-word;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-  overflow:hidden;opacity:.95;text-shadow:0 1px 2px rgba(0,0,0,.18)}
+.lm-tile-name{font-size:12px;font-weight:700;line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9}
 .lm-tile-count{font-family:'Reisinger-Yonatan','Rubik',sans-serif;
-  font-weight:800;line-height:.88;align-self:flex-start;
-  font-variant-numeric:tabular-nums}
+  font-weight:800;line-height:.88}
 
 .cta-wrap{pointer-events:auto;display:flex;flex-direction:column;align-items:center}
 .wall-cta{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-weight:700;font-size:clamp(15px,3.8vw,19px);
@@ -280,6 +284,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 <body>
 
 <canvas id="stadium"></canvas>
+<div id="footballLayer"></div>
 <div id="gate"><div id="gate-l"></div><div id="gate-r"></div></div>
 <button id="backBtn" aria-label="חזרה">←</button>
 
@@ -301,8 +306,8 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 
   <section class="screen" id="screen-intro">
     <span class="intro-badge">אצטדיון האהבה</span>
-    <h1 class="intro-h">מכתב אהבה<br>לקבוצה שלך</h1>
-    <p class="intro-p">כל אוהד נושא בתוכו מילים שלא אמר.<br>כאן תאמר אותן — ואולי תגלה למי הן באמת מיועדות.</p>
+    <h1 class="intro-h">מכתב אהבה לקבוצה שלך</h1>
+    <p class="intro-p">התרגלת לבטא רגש על המגרש<br>עכשיו אפשר לבטא אותו גם מחוץ למגרש</p>
     <button class="intro-btn" id="enterBtn">כנס לאצטדיון</button>
   </section>
 
@@ -878,44 +883,29 @@ const Stadium = (function(){
     updateLegend(sorted,map);
   }
 
-  /* ── squarified treemap (Bruls et al.): items[{id,v}] sorted desc,
-        returns [{x,y,w,h,item}]. Keeps every tile's aspect ratio near 1
-        so no razor-thin strips — even when all values are equal. ── */
+  /* ── binary-split treemap: items[{id,v}], returns [{x,y,w,h,item}] ── */
   function treemapLayout(items,x,y,w,h){
-    const out=[];
+    if(!items.length) return [];
+    if(items.length===1) return [{x,y,w,h,item:items[0]}];
     const total=items.reduce((a,i)=>a+i.v,0);
-    if(total<=0||!items.length) return out;
-    const scale=(w*h)/total;
-    const data=items.map(it=>({item:it,area:it.v*scale}));
-    const rect={x,y,w,h};
-    const worst=(row,len)=>{
-      if(!row.length) return Infinity;
-      let sum=0,mx=-Infinity,mn=Infinity;
-      for(const r of row){sum+=r.area; if(r.area>mx)mx=r.area; if(r.area<mn)mn=r.area;}
-      const s2=sum*sum,l2=len*len;
-      return Math.max((l2*mx)/s2, s2/(l2*mn));
-    };
-    const lay=(row,r)=>{
-      const sum=row.reduce((a,it)=>a+it.area,0);
-      if(r.w>=r.h){
-        const sw=sum/r.h; let oy=r.y;
-        for(const it of row){const rh=it.area/sw; out.push({x:r.x,y:oy,w:sw,h:rh,item:it.item}); oy+=rh;}
-        r.x+=sw; r.w-=sw;
-      }else{
-        const sh=sum/r.w; let ox=r.x;
-        for(const it of row){const rw=it.area/sh; out.push({x:ox,y:r.y,w:rw,h:sh,item:it.item}); ox+=rw;}
-        r.y+=sh; r.h-=sh;
-      }
-    };
-    let row=[],i=0;
-    while(i<data.length){
-      const len=Math.min(rect.w,rect.h);
-      const next=data[i];
-      if(!row.length || worst(row,len)>=worst(row.concat(next),len)){ row.push(next); i++; }
-      else { lay(row,rect); row=[]; }
+    let bestSplit=1,bestScore=Infinity,cum=0;
+    for(let i=0;i<items.length-1;i++){
+      cum+=items[i].v;
+      const f=cum/total,g=1-f;
+      let s;
+      if(w>=h){const a=w*f,b=w*g;s=Math.max(a/h,h/a)+Math.max(b/h,h/b);}
+      else{const a=h*f,b=h*g;s=Math.max(w/a,a/w)+Math.max(w/b,b/w);}
+      if(s<bestScore){bestScore=s;bestSplit=i+1;}
     }
-    if(row.length) lay(row,rect);
-    return out;
+    const g1=items.slice(0,bestSplit),g2=items.slice(bestSplit);
+    const f1=g1.reduce((a,i)=>a+i.v,0)/total;
+    if(w>=h){
+      const w1=w*f1;
+      return[...treemapLayout(g1,x,y,w1,h),...treemapLayout(g2,x+w1,y,w-w1,h)];
+    }else{
+      const h1=h*f1;
+      return[...treemapLayout(g1,x,y,w,h1),...treemapLayout(g2,x,y+h1,w,h-h1)];
+    }
   }
 
   function updateLegend(sorted,map){
@@ -941,17 +931,12 @@ const Stadium = (function(){
       const inner=document.createElement('div');
       inner.className='lm-block-inner';
       inner.style.background=bg; inner.style.color=tc;
-      /* smallest tile dimension as a fraction of the canvas — drives sizing */
-      const frac=Math.min(w/VW,h/VH);
-      const tiny=frac<.13;
-      if(tiny) inner.classList.add('lm-block-tiny');
       const nm=document.createElement('div'); nm.className='lm-tile-name';
       nm.textContent=cname(club);
-      /* name always shown; scales 10→15px with tile size, wraps to 2 lines */
-      nm.style.fontSize=Math.max(10,Math.min(15,8+frac*42)).toFixed(1)+'px';
+      if(w/VW<.11||h/VH<.14) nm.style.display='none';
       const ct=document.createElement('div'); ct.className='lm-tile-count';
-      /* count proportional to tile height, capped so it never crowds the name */
-      const fs=Math.max(15,Math.min(h/VH*120,frac*0.9*VH*4,60));
+      /* font size: proportional to block height, capped for large blocks */
+      const fs=Math.max(13,Math.min(h/VH*130,66));
       ct.style.fontSize=fs+'px';
       ct.textContent=c;
       inner.append(nm,ct); block.append(inner); grid.appendChild(block);
@@ -1182,7 +1167,7 @@ const Stadium = (function(){
     requestAnimationFrame(frame);
   }
 
-  return {init,relayout,assign,zoomToMySeat,getPitch:()=>pitch()};
+  return {init,relayout,assign,zoomToMySeat,getPitch:()=>pitch(),getCam:()=>cam};
 })();
 
 /* ── FootballSim ── */
@@ -1190,17 +1175,41 @@ const FootballSim = (function(){
   let players=[], pr=null;
   let teamColor0='#7B4FFF', teamColor1='#C8102E';
   let ball={x:0,y:0,holderIdx:0,inFlight:false,fromX:0,fromY:0,toX:0,toY:0,_startT:0,flightDur:800,targetIdx:-1,mode:'pass',shooterTeam:0};
-  let lastNow=0, kickoffTeam=0;
+  let lastNow=0, kickoffTeam=0, lastTurnover=0, lastAttTeam=0;
 
   /* decelerating flight for ground passes / shots */
   function easeOutFlight(t){return 1-Math.pow(1-t,2);}
+
+  /* off-ball positioning: slide with the play toward the ball (team
+     compactness / support) plus a slow personal offset, so players move
+     as a unit instead of shuffling side-to-side in a fixed slot */
+  function setOffBallTarget(p, attTeam, now){
+    const{px,py,pw,ph}=pr;
+    const unit=Math.min(pw,ph);
+    const isAtt=p.team===attTeam;
+    const base=pitchCoord(p.team,p.ri,isAtt);
+    /* follow the carrier's body (smooth), not the raw ball, so the shape
+       doesn't twitch with the ball's per-frame stick-to-foot offset */
+    const refX=ball.holderIdx>=0?players[ball.holderIdx].x:ball.x;
+    const refY=ball.holderIdx>=0?players[ball.holderIdx].y:ball.y;
+    let bx=base.x, by=base.y;
+    if(pr.portrait){ bx+=(refX-base.x)*0.18; by+=(refY-base.y)*0.07; }
+    else          { by+=(refY-base.y)*0.18; bx+=(refX-base.x)*0.07; }
+    if(now>p.wanderAt){
+      const spr=unit*(isAtt?0.05:0.03);
+      p._ox=(Math.random()-0.5)*spr; p._oy=(Math.random()-0.5)*spr;
+      p.wanderAt=now+3000+Math.random()*3000;
+    }
+    p.tx=Math.max(px+6,Math.min(px+pw-6, bx+(p._ox||0)));
+    p.ty=Math.max(py+6,Math.min(py+ph-6, by+(p._oy||0)));
+  }
 
   /* speed-capped, frame-rate-independent step toward (p.tx,p.ty) */
   function moveToward(p,speed,dt){
     const dx=p.tx-p.x, dy=p.ty-p.y;
     const d=Math.hypot(dx,dy);
-    if(d<0.4) return;
     const unit=Math.min(pr.pw,pr.ph);
+    if(d<unit*0.012) return;   /* deadzone: settle at the spot, no micro-twitch */
     const arrive=unit*0.05;
     let v=speed;
     if(d<arrive) v=speed*(0.3+0.7*(d/arrive)); /* ease into target */
@@ -1215,14 +1224,20 @@ const FootballSim = (function(){
   function pitchCoord(team,ri,attack){
     if(!pr) return{x:0,y:0};
     const[fx,fy]=FORM[ri];
-    const push=attack?ROLE[ri]==='FWD'?.28:ROLE[ri]==='MID'?.13:ROLE[ri]==='DEF'?.04:0:0;
-    const fxA=Math.min(.96,fx+push);
+    /* depth = fraction of the FULL pitch length from own goal.
+       At rest each team sits in its own half; when attacking the whole
+       team shifts upfield so forwards reach the opponent's final third. */
+    let depth=fx*0.5;
+    if(attack){
+      const ext=ROLE[ri]==='FWD'?.42:ROLE[ri]==='MID'?.30:ROLE[ri]==='DEF'?.16:.02;
+      depth=Math.min(0.94, depth+ext);
+    }
     const{px,py,pw,ph,portrait}=pr;
     if(!portrait){
-      const x=team===0?px+fxA*pw*.5:px+pw-fxA*pw*.5;
+      const x=team===0?px+depth*pw:px+pw-depth*pw;
       return{x,y:py+fy*ph};
     }
-    const y=team===0?py+fxA*ph*.5:py+ph-fxA*ph*.5;
+    const y=team===0?py+depth*ph:py+ph-depth*ph;
     return{x:px+fy*pw,y};
   }
 
@@ -1245,7 +1260,7 @@ const FootballSim = (function(){
 
   function mkP(team,ri){
     const{x,y}=pitchCoord(team,ri,false);
-    return{team,x,y,tx:x,ty:y,vx:0,vy:0,r:5,role:ROLE[ri],ri,
+    return{team,x,y,tx:x,ty:y,vx:0,vy:0,r:5,role:ROLE[ri],ri,_ox:0,_oy:0,
       hasBall:false,dribbleAt:0,passAt:0,shotAt:0,wanderAt:performance.now()+Math.random()*2500};
   }
 
@@ -1262,97 +1277,135 @@ const FootballSim = (function(){
           toX:cx,toY:cy,_startT:0,flightDur:800,targetIdx:-1,mode:'pass',shooterTeam:0};
     const t=performance.now();
     players[20].dribbleAt=t+900; players[20].passAt=t+2800; players[20].shotAt=t+3000;
-    lastNow=0; kickoffTeam=0;
+    lastNow=0; kickoffTeam=0; lastTurnover=0; lastAttTeam=0;
   }
 
   function update(now,pitchRect){
     if(!pitchRect||players.length<22) return;
     pr=pitchRect;
     const{px,py,pw,ph}=pr;
+    const unit=Math.min(pw,ph);
+    let dt=lastNow?(now-lastNow)/1000:0.016;
+    if(dt>0.05) dt=0.05;            /* clamp after tab-switch / first frame */
+    lastNow=now;
+
+    /* movement speeds in px/sec, scaled to pitch size — measured match tempo.
+       carrier is a touch faster than the presser so attacks can progress
+       instead of being hounded into endless backward recycling */
+    const SPD={gk:unit*0.15, defHold:unit*0.11, midOff:unit*0.185,
+               attRun:unit*0.23, carrier:unit*0.195, press:unit*0.18};
+
     const hi=ball.holderIdx;
     const holder=hi>=0?players[hi]:null;
 
-    /* ── ball in flight ── */
+    /* ── ball in flight (pass or shot) ── */
     if(ball.inFlight){
       const t=Math.min(1,(now-ball._startT)/ball.flightDur);
-      ball.x=ball.fromX+(ball.toX-ball.fromX)*t;
-      ball.y=ball.fromY+(ball.toY-ball.fromY)*t;
+      const e=easeOutFlight(t);
+      ball.x=ball.fromX+(ball.toX-ball.fromX)*e;
+      ball.y=ball.fromY+(ball.toY-ball.fromY)*e;
+
+      /* goalkeeper save: defending GK intercepts a shot mid-flight */
+      if(ball.mode==='shot'){
+        const gk=players.find(p=>p.team!==ball.shooterTeam&&p.role==='GK');
+        if(gk&&Math.hypot(gk.x-ball.x,gk.y-ball.y)<gk.r+unit*0.03){
+          gk.hasBall=true; ball.holderIdx=players.indexOf(gk);
+          ball.inFlight=false; ball.mode='pass'; ball.targetIdx=-1;
+          gk.dribbleAt=now+900; gk.shotAt=now+9999999;
+          gk.passAt=now+1200+Math.random()*1000;
+          return;
+        }
+      }
+
       if(t>=1){
         ball.inFlight=false;
+        if(ball.mode==='shot'){
+          /* shot reached the goal — goal/miss, restart from kickoff */
+          const conceding=ball.shooterTeam===0?1:0;
+          resetKickoff(conceding,now);
+          return;
+        }
         const recv=players[ball.targetIdx];
         if(recv){
           recv.hasBall=true; ball.holderIdx=ball.targetIdx;
-          recv.dribbleAt=now+400;
-          /* pass window: shorter under pressure, longer in midfield */
+          recv.dribbleAt=now+500;
+          recv.shotAt=now+1800+Math.random()*1800;   /* settle before shooting */
           const{dist:dn}=nearestOpp(recv.team,recv.x,recv.y,true);
-          const pressure=dn<Math.min(pw,ph)*.2;
-          recv.passAt=now+(pressure?1000+Math.random()*1200:2000+Math.random()*2500);
+          const pressure=dn<unit*.2;
+          recv.passAt=now+(pressure?1400+Math.random()*1000:2200+Math.random()*1800);
         }
         ball.targetIdx=-1;
       }
-      /* during flight players drift toward formation */
+      /* players keep their shape and shift with the ball during the flight */
       players.forEach(p=>{
-        const base=pitchCoord(p.team,p.ri,false);
-        p.x+=(base.x-p.x)*.006; p.y+=(base.y-p.y)*.006;
-        p.vx=0; p.vy=0;
+        const prevX=p.x, prevY=p.y;
+        if(p.role==='GK'){
+          const base=pitchCoord(p.team,p.ri,false);
+          if(pr.portrait){ p.tx=Math.max(px+pw*0.34,Math.min(px+pw*0.66, ball.x)); p.ty=base.y; }
+          else           { p.ty=Math.max(py+ph*0.34,Math.min(py+ph*0.66, ball.y)); p.tx=base.x; }
+          moveToward(p, SPD.gk, dt);
+        }else{
+          setOffBallTarget(p, lastAttTeam, now);
+          moveToward(p, p.team===lastAttTeam?SPD.midOff:SPD.defHold, dt);
+        }
+        p.vx=p.x-prevX; p.vy=p.y-prevY;
       });
       return;
     }
 
     if(!holder) return;
     const attTeam=holder.team;
+    lastAttTeam=attTeam;
     const{idx:pressIdx,dist:pressDist}=nearestOpp(attTeam,holder.x,holder.y,true);
+    const underPressure=pressDist<unit*.12;
+    const goal=goalPos(attTeam);
+    const distGoal=Math.hypot(goal.x-holder.x,goal.y-holder.y);
 
-    /* ── update dribble target (timed, not every frame) ── */
-    if(now>=holder.dribbleAt){
-      const g=goalPos(attTeam);
-      const frac=.50+(Math.random()*.25); // aim 50-75% of way to goal
-      const aimX=holder.x+(g.x-holder.x)*frac;
-      const aimY=holder.y+(g.y-holder.y)*frac;
-      const spr=Math.min(pw,ph)*.07;
-      holder.tx=Math.max(px+6,Math.min(px+pw-6,aimX+(Math.random()-.5)*spr));
-      holder.ty=Math.max(py+6,Math.min(py+ph-6,aimY+(Math.random()-.5)*spr));
-      holder.dribbleAt=now+550+Math.random()*350;
+    /* ── shot: carrier in the final third & in range ── */
+    if(holder.role!=='GK' && distGoal<unit*.52 && now>=holder.shotAt){
+      shoot(holder,attTeam,now);
+      return;
     }
 
-    /* ── move every player ── */
+    /* ── dribble target: small, measured advances toward goal ── */
+    if(now>=holder.dribbleAt){
+      const frac=.25+Math.random()*.20;            /* shorter strides than before */
+      const aimX=holder.x+(goal.x-holder.x)*frac;
+      const aimY=holder.y+(goal.y-holder.y)*frac;
+      const spr=unit*.03;
+      holder.tx=Math.max(px+6,Math.min(px+pw-6,aimX+(Math.random()-.5)*spr));
+      holder.ty=Math.max(py+6,Math.min(py+ph-6,aimY+(Math.random()-.5)*spr));
+      holder.dribbleAt=now+900+Math.random()*600;
+    }
+
+    /* ── move every player (speed-capped) ── */
     players.forEach((p,i)=>{
       const prevX=p.x, prevY=p.y;
       const isAtt=p.team===attTeam;
       if(p.hasBall){
-        p.x+=(p.tx-p.x)*.024; p.y+=(p.ty-p.y)*.024;
+        moveToward(p, SPD.carrier, dt);
       }else if(!isAtt&&i===pressIdx&&p.role!=='GK'){
-        /* presser runs directly at carrier */
         p.tx=holder.x; p.ty=holder.y;
-        p.x+=(p.tx-p.x)*.026; p.y+=(p.ty-p.y)*.026;
+        moveToward(p, SPD.press, dt);
+      }else if(p.role==='GK'){
+        /* hold the goal line but slide across to cover the ball */
+        const base=pitchCoord(p.team,p.ri,false);
+        if(pr.portrait){ p.tx=Math.max(px+pw*0.34,Math.min(px+pw*0.66, ball.x)); p.ty=base.y; }
+        else { p.ty=Math.max(py+ph*0.34,Math.min(py+ph*0.66, ball.y)); p.tx=base.x; }
+        moveToward(p, SPD.gk, dt);
       }else{
-        const attack=isAtt&&pressDist<Math.min(pw,ph)*.35;
-        const base=pitchCoord(p.team,p.ri,attack);
-        if(p.role==='GK'){
-          /* GK hugs goal line with small lateral float */
-          p.tx=base.x; p.ty=base.y;
-          p.x+=(p.tx-p.x)*.020; p.y+=(p.ty-p.y)*.020;
-        }else{
-          if(now>p.wanderAt){
-            const spr=Math.min(pw,ph)*(isAtt?0.07:0.04);
-            p.tx=Math.max(px+6,Math.min(px+pw-6,base.x+(Math.random()-.5)*spr));
-            p.ty=Math.max(py+6,Math.min(py+ph-6,base.y+(Math.random()-.5)*spr));
-            p.wanderAt=now+2000+Math.random()*3000;
-          }
-          const spd=isAtt?.015:.010;
-          p.x+=(p.tx-p.x)*spd; p.y+=(p.ty-p.y)*spd;
-        }
+        setOffBallTarget(p, attTeam, now);
+        moveToward(p, isAtt?SPD.midOff:SPD.defHold, dt);
       }
       p.x=Math.max(px+4,Math.min(px+pw-4,p.x));
       p.y=Math.max(py+4,Math.min(py+ph-4,p.y));
-      /* track velocity for ball direction */
       p.vx=p.x-prevX; p.vy=p.y-prevY;
     });
 
     /* ── ball sticks to carrier (uses actual velocity) ── */
     {
       const vl=Math.hypot(holder.vx,holder.vy);
-      if(vl>.08){
+      if(vl>.05){
         ball.x=holder.x+(holder.vx/vl)*(holder.r+3.8);
         ball.y=holder.y+(holder.vy/vl)*(holder.r+3.8);
       }else{
@@ -1363,50 +1416,94 @@ const FootballSim = (function(){
       }
     }
 
-    /* ── tackle (only after short possession grace) ── */
-    if(now>holder.passAt-1800){
+    /* ── tackle (after a short possession grace, with a turnover cooldown
+       so the ball can't ping-pong between two adjacent players) ── */
+    if(now-lastTurnover>700 && now>holder.passAt-1800){
       const opp=players.find(p=>
         p.team!==attTeam&&p.role!=='GK'&&Math.hypot(p.x-holder.x,p.y-holder.y)<11);
       if(opp){
+        lastTurnover=now;
         holder.hasBall=false; opp.hasBall=true;
         const oi=players.indexOf(opp); ball.holderIdx=oi;
         const g=goalPos(opp.team),gl=Math.hypot(g.x-opp.x,g.y-opp.y)||1;
         ball.x=opp.x+(g.x-opp.x)/gl*(opp.r+3.8);
         ball.y=opp.y+(g.y-opp.y)/gl*(opp.r+3.8);
-        opp.dribbleAt=now+400;
+        opp.dribbleAt=now+500;
+        opp.shotAt=now+2000+Math.random()*2000;
         const{dist:dn2}=nearestOpp(opp.team,opp.x,opp.y,true);
-        opp.passAt=now+(dn2<Math.min(pw,ph)*.2?900+Math.random()*1000:1800+Math.random()*2000);
+        opp.passAt=now+(dn2<unit*.2?1300+Math.random()*900:2200+Math.random()*1600);
         return;
       }
     }
 
-    /* ── pass ── */
-    if(now>=holder.passAt){
-      const goal=goalPos(attTeam);
+    /* ── pass: forward/progressive, avoids constant side-to-side ── */
+    {
+      const al=distGoal||1;
+      const ax=(goal.x-holder.x)/al, ay=(goal.y-holder.y)/al;   /* attack axis */
       const candidates=players
         .map((p,i)=>({p,i}))
-        .filter(({p,i})=>p.team===attTeam&&i!==hi)
+        .filter(({p,i})=>p.team===attTeam&&i!==hi&&p.role!=='GK')
         .map(({p,i})=>{
-          const d2g=Math.hypot(p.x-goal.x,p.y-goal.y);
+          const rx=p.x-holder.x, ry=p.y-holder.y;
+          const prog=rx*ax+ry*ay;                 /* forward progress along axis */
+          const lateral=Math.abs(rx*(-ay)+ry*ax); /* perpendicular offset */
           const{dist:space}=nearestOpp(attTeam,p.x,p.y,false);
-          /* prefer forward, open teammates */
-          const fwd=pr.portrait?
-            (attTeam===0?p.y>holder.y:p.y<holder.y):
-            (attTeam===0?p.x>holder.x:p.x<holder.x);
-          return{i,score:-d2g*.45+space*.55+(fwd?20:0)};
+          let score=prog*1.20 + space*0.28 - lateral*0.62;
+          if(prog<0) score-=underPressure?120:200;  /* strongly discourage backward passes */
+          return{i,score};
         })
         .sort((a,b)=>b.score-a.score);
-      if(candidates.length){
-        /* 75% best choice, 25% second — variety without chaos */
-        const pick=candidates.length>1&&Math.random()<.25?candidates[1]:candidates[0];
+      const best=candidates[0];
+      const timeUp=now>=holder.passAt;
+      /* deliberate release: at the natural pass time, or for an incisive forward
+         ball. Pressure does NOT force an instant pass — the carrier dribbles away
+         instead, which is what kills the constant side-to-side recycling */
+      const incisive=best&&best.score>unit*0.20;
+      if(best&&(timeUp||incisive)){
+        const pick=candidates.length>1&&Math.random()<.10?candidates[1]:candidates[0];
         holder.hasBall=false;
         ball.fromX=ball.x; ball.fromY=ball.y;
         ball.toX=players[pick.i].x; ball.toY=players[pick.i].y;
         const dist=Math.hypot(ball.toX-ball.fromX,ball.toY-ball.fromY);
-        ball.flightDur=Math.max(280,Math.min(1100,dist*3.8));
-        ball.inFlight=true; ball._startT=now; ball.holderIdx=-1; ball.targetIdx=pick.i;
+        ball.flightDur=Math.max(350,Math.min(1400,dist*4.5));
+        ball.inFlight=true; ball._startT=now; ball.holderIdx=-1; ball.targetIdx=pick.i; ball.mode='pass';
       }
     }
+  }
+
+  /* ── shot on goal ── */
+  function shoot(shooter,team,now){
+    const goal=goalPos(team);
+    const unit=Math.min(pr.pw,pr.ph);
+    const acc=(Math.random()-0.5)*2*unit*0.08;   /* accuracy spread across the mouth */
+    let tx=goal.x, ty=goal.y;
+    if(pr.portrait) tx+=acc; else ty+=acc;
+    shooter.hasBall=false;
+    ball.fromX=ball.x; ball.fromY=ball.y;
+    ball.toX=tx; ball.toY=ty;
+    const dist=Math.hypot(ball.toX-ball.fromX,ball.toY-ball.fromY);
+    ball.flightDur=Math.max(300,Math.min(900,dist*3.0));  /* shots travel faster */
+    ball.inFlight=true; ball._startT=now; ball.holderIdx=-1; ball.targetIdx=-1;
+    ball.mode='shot'; ball.shooterTeam=team;
+  }
+
+  /* ── restart from kickoff for the given team ── */
+  function resetKickoff(team,now){
+    kickoffTeam=team; lastTurnover=now; lastAttTeam=team;
+    players.forEach(p=>{
+      const base=pitchCoord(p.team,p.ri,false);
+      p.x=base.x; p.y=base.y; p.tx=base.x; p.ty=base.y; p.vx=0; p.vy=0;
+      p.hasBall=false;
+      p.wanderAt=now+Math.random()*2500;
+      p.shotAt=now+9999999;
+    });
+    const cx=pr.px+pr.pw/2, cy=pr.py+pr.ph/2;
+    const idx=players.findIndex(p=>p.team===team&&p.ri===10);
+    const fwd=players[idx];
+    fwd.x=cx; fwd.y=cy; fwd.tx=cx; fwd.ty=cy; fwd.hasBall=true;
+    fwd.dribbleAt=now+900; fwd.passAt=now+2200+Math.random()*1400; fwd.shotAt=now+3200;
+    ball={x:cx,y:cy,holderIdx:idx,inFlight:false,fromX:cx,fromY:cy,
+          toX:cx,toY:cy,_startT:0,flightDur:800,targetIdx:-1,mode:'pass',shooterTeam:team};
   }
 
   function draw(ctx){
