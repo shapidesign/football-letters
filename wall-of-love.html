@@ -57,31 +57,28 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 #legendModal{position:fixed;inset:0;z-index:35;background:rgba(0,0,0,.8);
   display:none;align-items:center;justify-content:center;padding:20px}
 #legendModal.on{display:flex}
-.lm-inner{background:var(--surface);border-radius:24px;padding:24px 28px;
-  width:min(560px,96vw);max-height:88vh;overflow-y:auto}
+.lm-inner{background:var(--surface);border-radius:24px;padding:22px 24px;
+  width:min(780px,96vw);max-height:92vh;overflow:hidden;
+  display:flex;flex-direction:column}
 .lm-header{display:flex;justify-content:space-between;align-items:center;
-  font-size:18px;font-weight:700;margin-bottom:4px}
+  font-size:18px;font-weight:700;margin-bottom:4px;flex-shrink:0}
 #legendClose{background:none;border:none;color:var(--muted);font-size:22px;
   cursor:pointer;padding:4px 8px;font-family:inherit;transition:color .2s}
 #legendClose:hover{color:var(--text)}
-/* ── legend bar chart ── */
-#lmGrid{display:flex;flex-direction:column;gap:0;margin-top:12px;
-  border-radius:14px;overflow:hidden}
-.lm-row{position:relative;height:54px;flex-shrink:0;overflow:hidden;
-  border-bottom:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);
-  cursor:default}
-.lm-row:last-child{border-bottom:none}
-.lm-row:hover .lm-fill{filter:brightness(1.12)}
-.lm-fill{position:absolute;top:0;right:0;height:100%;
-  transition:width .55s cubic-bezier(.22,.61,.36,1);opacity:.82}
-.lm-row-labels{position:absolute;inset:0;display:flex;align-items:center;
-  justify-content:space-between;padding:0 16px;direction:rtl;z-index:2;
-  pointer-events:none}
-.lm-tile-name{font-size:13px;font-weight:700;line-height:1;
-  color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
-.lm-tile-count{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:24px;
-  font-weight:800;line-height:1;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+/* ── legend treemap ── */
+#lmGrid{position:relative;width:100%;flex:1;margin-top:14px;
+  border-radius:16px;overflow:hidden;min-height:200px;
+  aspect-ratio:16/9}
+.lm-block{position:absolute;box-sizing:border-box;padding:3px}
+.lm-block-inner{width:100%;height:100%;border-radius:10px;overflow:hidden;
+  padding:10px 12px;display:flex;flex-direction:column;
+  justify-content:space-between;cursor:default;
+  transition:filter .15s;direction:rtl}
+.lm-block-inner:hover{filter:brightness(1.1)}
+.lm-tile-name{font-size:12px;font-weight:700;line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9}
+.lm-tile-count{font-family:'Reisinger-Yonatan','Rubik',sans-serif;
+  font-weight:800;line-height:.88}
 
 .cta-wrap{pointer-events:auto;display:flex;flex-direction:column;align-items:center}
 .wall-cta{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-weight:700;font-size:clamp(15px,3.8vw,19px);
@@ -859,38 +856,63 @@ const Stadium = (function(){
     updateLegend(sorted,map);
   }
 
+  /* ── binary-split treemap: items[{id,v}], returns [{x,y,w,h,item}] ── */
+  function treemapLayout(items,x,y,w,h){
+    if(!items.length) return [];
+    if(items.length===1) return [{x,y,w,h,item:items[0]}];
+    const total=items.reduce((a,i)=>a+i.v,0);
+    let bestSplit=1,bestScore=Infinity,cum=0;
+    for(let i=0;i<items.length-1;i++){
+      cum+=items[i].v;
+      const f=cum/total,g=1-f;
+      let s;
+      if(w>=h){const a=w*f,b=w*g;s=Math.max(a/h,h/a)+Math.max(b/h,h/b);}
+      else{const a=h*f,b=h*g;s=Math.max(w/a,a/w)+Math.max(w/b,b/w);}
+      if(s<bestScore){bestScore=s;bestSplit=i+1;}
+    }
+    const g1=items.slice(0,bestSplit),g2=items.slice(bestSplit);
+    const f1=g1.reduce((a,i)=>a+i.v,0)/total;
+    if(w>=h){
+      const w1=w*f1;
+      return[...treemapLayout(g1,x,y,w1,h),...treemapLayout(g2,x+w1,y,w-w1,h)];
+    }else{
+      const h1=h*f1;
+      return[...treemapLayout(g1,x,y,w,h1),...treemapLayout(g2,x,y+h1,w,h-h1)];
+    }
+  }
+
   function updateLegend(sorted,map){
     const total=sorted.reduce((a,id)=>a+(map[id]?map[id].length:0),0);
     const cnt=$('#legendCount'); if(cnt) cnt.textContent=total;
     const grid=$('#lmGrid'); if(!grid) return;
     grid.innerHTML='';
     if(!sorted.length) return;
-    const maxC=Math.max(1,...sorted.map(id=>map[id].length));
-    sorted.forEach(id=>{
-      const club=CLUBS[id]; if(!club) return;
-      const c=map[id].length;
-      /* bar width: top club = 88%, others proportional, min 8% so bar is always visible */
-      const pct=Math.max(8,Math.round((c/maxC)*88));
+    const items=sorted.filter(id=>map[id]&&map[id].length>0).map(id=>({id,v:map[id].length}));
+    if(!items.length) return;
+    /* virtual canvas 16:9 — matches modal aspect ratio */
+    const VW=160,VH=90;
+    const rects=treemapLayout(items,0,0,VW,VH);
+    rects.forEach(({x,y,w,h,item})=>{
+      const club=CLUBS[item.id]; if(!club) return;
+      const c=item.v;
       const bg=sanitizeColor(club.p);
-      const row=document.createElement('div');
-      row.className='lm-row';
-      /* fill — start at 0 width, animate to pct after paint */
-      const fill=document.createElement('div');
-      fill.className='lm-fill';
-      fill.style.background=bg;
-      fill.style.width='0%';
-      /* labels overlay */
-      const labels=document.createElement('div');
-      labels.className='lm-row-labels';
-      const nm=document.createElement('span');
-      nm.className='lm-tile-name'; nm.textContent=cname(club);
-      const ct=document.createElement('span');
-      ct.className='lm-tile-count'; ct.textContent=c;
-      labels.append(nm,ct);
-      row.append(fill,labels);
-      grid.appendChild(row);
-      /* trigger CSS transition after first paint */
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{fill.style.width=pct+'%';}));
+      const dark=lum(bg)>.42;
+      const tc=dark?'rgba(0,0,0,.88)':'rgba(255,255,255,.95)';
+      const block=document.createElement('div');
+      block.className='lm-block';
+      block.style.cssText=`left:${x/VW*100}%;top:${y/VH*100}%;width:${w/VW*100}%;height:${h/VH*100}%`;
+      const inner=document.createElement('div');
+      inner.className='lm-block-inner';
+      inner.style.background=bg; inner.style.color=tc;
+      const nm=document.createElement('div'); nm.className='lm-tile-name';
+      nm.textContent=cname(club);
+      if(w/VW<.11||h/VH<.14) nm.style.display='none';
+      const ct=document.createElement('div'); ct.className='lm-tile-count';
+      /* font size: proportional to block height, capped for large blocks */
+      const fs=Math.max(13,Math.min(h/VH*130,66));
+      ct.style.fontSize=fs+'px';
+      ct.textContent=c;
+      inner.append(nm,ct); block.append(inner); grid.appendChild(block);
     });
   }
 
