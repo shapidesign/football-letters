@@ -1201,7 +1201,16 @@ const FootballSim = (function(){
   let lastNow=0, kickoffTeam=0, lastTurnover=0, lastAttTeam=0, acc=0;
   let match={phase:'kickoff', phaseUntil:0, passCount:0};
   const FIXED=1/60;                       /* fixed physics timestep (s) */
-  const BALL_K=0.022*60;                  /* ball air-drag decay rate (1/s) */
+  const BALL_K=0.014*60;                  /* ball air-drag decay rate (1/s) — tuned slower */
+  const STAND_VEL=0.014;                  /* below this speed, freeze idle motion */
+  function stopDist(){ return Math.max(3.5, unit*0.016); }
+  function standDist(){ return Math.max(4, unit*0.024); }
+  function isIdle(b, tx, ty){
+    if(!b) return false;
+    const vl=Math.hypot(b.velocity.x,b.velocity.y);
+    const d=Math.hypot((tx??b.position.x)-b.position.x,(ty??b.position.y)-b.position.y);
+    return vl<STAND_VEL && d<standDist();
+  }
 
   /* higher-level ball state (positions come from the Matter body) */
   let ball={x:0,y:0,holderIdx:-1,inFlight:false,mode:'pass',shooterTeam:0,
@@ -1350,7 +1359,7 @@ const FootballSim = (function(){
     players=[];
     FORM.forEach((_,ri)=>{ players.push(mkP(0,ri)); players.push(mkP(1,ri)); });
     const cx=pr.px+pr.pw/2, cy=pr.py+pr.ph/2;
-    ballBody=M.Bodies.circle(cx,cy,ballR,{frictionAir:0.022,friction:0,frictionStatic:0,restitution:0.55,density:0.006,
+    ballBody=M.Bodies.circle(cx,cy,ballR,{frictionAir:0.042,friction:0,frictionStatic:0,restitution:0.48,density:0.006,
       collisionFilter:{category:COLLISION.ball,mask:COLLISION.wall},label:'ball'});
     M.Body.setInertia(ballBody, Infinity);
     M.World.add(world,[...players.map(p=>p.body), ballBody, ...buildWalls()]);
@@ -1396,17 +1405,46 @@ const FootballSim = (function(){
   }
 
   function syncFromBodies(){
-    const pEase=reduceMotion?0.16:0.24, bEase=reduceMotion?0.20:0.34;
+    const pEase=reduceMotion?0.12:0.17, bEase=reduceMotion?0.14:0.20;
+    const snapPlayer=unit*.62, snapBall=unit*.72;
     for(let i=0;i<players.length;i++){
       const p=players[i], b=p.body; if(!b) continue;
       p.x=b.position.x; p.y=b.position.y;
-      if(p.rx==null||Math.hypot(p.rx-p.x,p.ry-p.y)>unit*.28){ p.rx=p.x; p.ry=p.y; }
+      const idle=isIdle(b,p.tx,p.ty);
+      if(idle){
+        if(p._standRx==null){ p._standRx=p.rx??p.x; p._standRy=p.ry??p.y; }
+        p.rx=p._standRx; p.ry=p._standRy;
+        continue;
+      }
+      p._standRx=p._standRy=null;
+      if(p.rx==null||Math.hypot(p.rx-p.x,p.ry-p.y)>snapPlayer){ p.rx=p.x; p.ry=p.y; }
       else { p.rx+=(p.x-p.rx)*pEase; p.ry+=(p.y-p.ry)*pEase; }
     }
     if(ballBody){
       ball.x=ballBody.position.x; ball.y=ballBody.position.y;
-      if(ball.rx==null||Math.hypot(ball.rx-ball.x,ball.ry-ball.y)>unit*.35){ ball.rx=ball.x; ball.ry=ball.y; }
-      else { ball.rx+=(ball.x-ball.rx)*bEase; ball.ry+=(ball.y-ball.ry)*bEase; }
+      if(ball.holderIdx>=0){
+        const h=players[ball.holderIdx];
+        if(h&&h.body&&h._standRx!=null){
+          const ox=ballBody.position.x-h.body.position.x, oy=ballBody.position.y-h.body.position.y;
+          if(ball._standRx==null){ ball._standRx=h._standRx+ox; ball._standRy=h._standRy+oy; }
+          ball.rx=ball._standRx; ball.ry=ball._standRy;
+        }else{
+          ball._standRx=ball._standRy=null;
+          if(ball.rx==null||Math.hypot(ball.rx-ball.x,ball.ry-ball.y)>snapBall){ ball.rx=ball.x; ball.ry=ball.y; }
+          else { ball.rx+=(ball.x-ball.rx)*bEase; ball.ry+=(ball.y-ball.ry)*bEase; }
+        }
+      }else{
+        const bvl=Math.hypot(ballBody.velocity.x,ballBody.velocity.y);
+        const ballIdle=bvl<STAND_VEL*1.6;
+        if(ballIdle){
+          if(ball._standRx==null){ ball._standRx=ball.rx??ball.x; ball._standRy=ball.ry??ball.y; }
+          ball.rx=ball._standRx; ball.ry=ball._standRy;
+        }else{
+          ball._standRx=ball._standRy=null;
+          if(ball.rx==null||Math.hypot(ball.rx-ball.x,ball.ry-ball.y)>snapBall){ ball.rx=ball.x; ball.ry=ball.y; }
+          else { ball.rx+=(ball.x-ball.rx)*bEase; ball.ry+=(ball.y-ball.ry)*bEase; }
+        }
+      }
     }
   }
 
@@ -1566,37 +1604,52 @@ const FootballSim = (function(){
 
   /* ── physics: drive players toward their AI targets each substep ── */
   function applyVelocities(){
+    const stop=stopDist(), arrive=unit*0.055;
     for(let i=0;i<players.length;i++){
       const p=players[i], b=p.body; if(!b) continue;
       let dx=p.tx-b.position.x, dy=p.ty-b.position.y;
       const d=Math.hypot(dx,dy);
-      if(d<1.4){
-        M.Body.setVelocity(b,{x:b.velocity.x*0.72,y:b.velocity.y*0.72});
+      if(d<stop || isIdle(b,p.tx,p.ty)){
+        M.Body.setVelocity(b,{x:0,y:0});
         continue;
       }
-      const arrive=unit*0.05; let s=p.spd||unit*0.11;
-      if(d<arrive) s*=(0.3+0.7*(d/arrive));
+      let s=p.spd||unit*0.11;
+      if(d<arrive) s*=(0.25+0.75*(d/arrive));
       const desiredX=(dx/d)*s*FIXED, desiredY=(dy/d)*s*FIXED;
-      const ease=d<arrive?0.18:0.28;
+      const ease=d<arrive?0.14:0.22;
       M.Body.setVelocity(b,{
         x:b.velocity.x+(desiredX-b.velocity.x)*ease,
         y:b.velocity.y+(desiredY-b.velocity.y)*ease
       });
     }
   }
+  function dampIdleBall(){
+    if(!ballBody||ball.holderIdx>=0) return;
+    const v=ballBody.velocity, vl=Math.hypot(v.x,v.y);
+    if(vl<STAND_VEL*1.4) M.Body.setVelocity(ballBody,{x:0,y:0});
+  }
   /* glue the ball to the carrier (slightly ahead, matching velocity) */
   function glueBall(){
     if(ball.holderIdx<0||!ballBody) return;
     const h=players[ball.holderIdx]; if(!h||!h.body) return;
     const b=h.body; const vx=b.velocity.x, vy=b.velocity.y, vl=Math.hypot(vx,vy);
+    const idle=isIdle(b,h.tx,h.ty);
     let dx,dy;
-    if(vl>0.02){ dx=vx/vl; dy=vy/vl; }
+    if(vl>STAND_VEL*1.8){ dx=vx/vl; dy=vy/vl; }
     else { const g=goalPos(h.team); const gx=g.x-b.position.x, gy=g.y-b.position.y, gl=Math.hypot(gx,gy)||1; dx=gx/gl; dy=gy/gl; }
-    h._bdx+=(dx-h._bdx)*0.18; h._bdy+=(dy-h._bdy)*0.18;
+    const faceEase=idle?0.06:0.14;
+    h._bdx+=(dx-h._bdx)*faceEase; h._bdy+=(dy-h._bdy)*faceEase;
     const dl=Math.hypot(h._bdx,h._bdy)||1; dx=h._bdx/dl; dy=h._bdy/dl;
     const off=playerR+ballR+1.5;
-    M.Body.setPosition(ballBody,{x:b.position.x+dx*off, y:b.position.y+dy*off});
-    M.Body.setVelocity(ballBody,{x:vx,y:vy});
+    const tx=b.position.x+dx*off, ty=b.position.y+dy*off;
+    if(idle){
+      const bx=ballBody.position.x, by=ballBody.position.y;
+      M.Body.setPosition(ballBody,{x:bx+(tx-bx)*0.22,y:by+(ty-by)*0.22});
+      M.Body.setVelocity(ballBody,{x:0,y:0});
+    }else{
+      M.Body.setPosition(ballBody,{x:tx,y:ty});
+      M.Body.setVelocity(ballBody,{x:vx,y:vy});
+    }
   }
 
   function passTo(holder,target,idx,now){
@@ -1604,12 +1657,13 @@ const FootballSim = (function(){
     const bx=ballBody.position.x, by=ballBody.position.y;
     const lead=clampPitchPt({x:target.tx||target.x,y:target.ty||target.y},playerR+2);
     let dx=lead.x-bx, dy=lead.y-by; const d=Math.hypot(dx,dy)||1;
-    let v0=d*BALL_K*1.45; v0=Math.max(unit*1.1, Math.min(unit*3.0, v0));
+    let v0=d*BALL_K*1.05; v0=Math.max(unit*0.65, Math.min(unit*1.85, v0));
     M.Body.setVelocity(ballBody,{x:(dx/d)*v0*FIXED, y:(dy/d)*v0*FIXED});
     target.tx=lead.x; target.ty=lead.y; target.spd=Math.max(target.spd||0,unit*.24);
     players.forEach(p=>p.hasBall=false);
     ball.holderIdx=-1; ball.inFlight=true; ball.mode='pass';
     ball.targetIdx=idx; ball.lastKickerIdx=prev; ball.kickCdUntil=now+260;
+    ball._standRx=ball._standRy=null;
     match.phase='pass'; match.phaseUntil=now+900; match.passCount++;
   }
   function shoot(shooter,team,now){
@@ -1618,11 +1672,12 @@ const FootballSim = (function(){
     const prev=ball.holderIdx;
     const bx=ballBody.position.x, by=ballBody.position.y;
     let dx=tx-bx, dy=ty-by; const d=Math.hypot(dx,dy)||1;
-    let v0=d*BALL_K*1.8; v0=Math.max(unit*1.8, Math.min(unit*3.8, v0));
+    let v0=d*BALL_K*1.25; v0=Math.max(unit*1.05, Math.min(unit*2.35, v0));
     M.Body.setVelocity(ballBody,{x:(dx/d)*v0*FIXED, y:(dy/d)*v0*FIXED});
     players.forEach(p=>p.hasBall=false);
     ball.holderIdx=-1; ball.inFlight=true; ball.mode='shot'; ball.shooterTeam=team;
     ball.targetIdx=-1; ball.lastKickerIdx=prev; ball.kickCdUntil=now+260;
+    ball._standRx=ball._standRy=null;
     match.phase='shot'; match.phaseUntil=now+1600;
   }
   function capture(i,now){
@@ -1630,6 +1685,7 @@ const FootballSim = (function(){
     const p=players[i]; p.hasBall=true;
     const continued=p.team===lastAttTeam;
     ball.holderIdx=i; ball.inFlight=false; ball.mode='pass'; ball.targetIdx=-1;
+    ball._standRx=ball._standRy=null;
     if(ballBody) M.Body.setVelocity(ballBody,{x:0,y:0});
     const{dist:dn}=nearestOpp(p.team,p.x,p.y,true); const pressure=dn<unit*.2;
     const prog=progressAlong(p.team,p.x,p.y);
@@ -1683,6 +1739,7 @@ const FootballSim = (function(){
       const base=pitchCoord(p.team,p.ri,false);
       if(p.body){ M.Body.setPosition(p.body,{x:base.x,y:base.y}); M.Body.setVelocity(p.body,{x:0,y:0}); }
       p.x=base.x; p.y=base.y; p.rx=base.x; p.ry=base.y; p.tx=base.x; p.ty=base.y;
+      p._standRx=p._standRy=null;
       p.hasBall=false; p.wanderAt=now+Math.random()*2500; p.shotAt=now+9e9;
     });
     const cx=pr.px+pr.pw/2, cy=pr.py+pr.ph/2;
@@ -1694,7 +1751,7 @@ const FootballSim = (function(){
       fwd.dribbleAt=now+700; fwd.passAt=now+1800+Math.random()*900; fwd.shotAt=now+9000;
     }
     if(ballBody){ M.Body.setPosition(ballBody,{x:cx,y:cy}); M.Body.setVelocity(ballBody,{x:0,y:0}); }
-    ball.x=cx; ball.y=cy; ball.rx=cx; ball.ry=cy; ball.holderIdx=idx; ball.inFlight=false; ball.mode='pass';
+    ball.x=cx; ball.y=cy; ball.rx=cx; ball.ry=cy; ball._standRx=ball._standRy=null; ball.holderIdx=idx; ball.inFlight=false; ball.mode='pass';
     ball.targetIdx=-1; ball.shooterTeam=team; ball.kickCdUntil=now; ball.lastKickerIdx=-1;
     trailPts.length=0; trailAt=0;
   }
@@ -1715,6 +1772,7 @@ const FootballSim = (function(){
       applyVelocities();
       glueBall();
       M.Engine.update(engine, FIXED*1000);
+      dampIdleBall();
       postStep(now);
       acc-=FIXED; steps++;
     }
