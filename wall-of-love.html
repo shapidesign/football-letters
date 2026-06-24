@@ -1730,6 +1730,54 @@ const FootballSim = (function(){
     }
   }
 
+  /* ── steering separation: keep players from stacking on the same point ──
+     Players don't physically collide (velocities are hard-set each substep,
+     which would fight Matter's contact resolution and jitter). Instead we
+     spread their *targets* apart so two bodies never converge to one spot. */
+  function separate(){
+    if(!pr) return;
+    const sepR=playerR*2.3;                 /* desired min centre distance */
+    const sepR2=sepR*sepR;
+    const n=players.length;
+    for(let i=0;i<n;i++){ const p=players[i]; p._sepx=0; p._sepy=0; }
+    for(let i=0;i<n;i++){
+      const a=players[i]; if(!a.body) continue;
+      for(let j=i+1;j<n;j++){
+        const b=players[j]; if(!b.body) continue;
+        let dx=a.body.position.x-b.body.position.x;
+        let dy=a.body.position.y-b.body.position.y;
+        let d2=dx*dx+dy*dy;
+        if(d2>=sepR2) continue;
+        if(d2<1e-4){ const ang=Math.random()*6.283; dx=Math.cos(ang); dy=Math.sin(ang); d2=1; }
+        const d=Math.sqrt(d2)||0.001;
+        const overlap=(sepR-d)/sepR;        /* 0 (just touching) → 1 (coincident) */
+        const f=overlap*playerR*1.1;        /* push strength per partner */
+        const ux=dx/d, uy=dy/d;
+        a._sepx+=ux*f; a._sepy+=uy*f;
+        b._sepx-=ux*f; b._sepy-=uy*f;
+      }
+    }
+    /* whoever must actually touch the ball is exempt, so they never orbit it:
+       the carrier when held, else the single nearest player to a loose ball */
+    let ballGuard=ball.holderIdx;
+    if(ballGuard<0){
+      let bd=Infinity;
+      for(let i=0;i<n;i++){ const p=players[i]; if(!p.body) continue;
+        const d=Math.hypot(p.body.position.x-ball.x,p.body.position.y-ball.y);
+        if(d<bd){ bd=d; ballGuard=i; } }
+    }
+    const{px,py,pw,ph}=pr, cap=playerR*1.6;
+    for(let i=0;i<n;i++){
+      if(i===ballGuard) continue;
+      const p=players[i]; if(!p.body||p.tx==null) continue;
+      let sx=p._sepx, sy=p._sepy;
+      const sl=Math.hypot(sx,sy);
+      if(sl>cap){ sx=sx/sl*cap; sy=sy/sl*cap; }   /* clamp so it stays smooth */
+      p.tx=clamp(p.tx+sx, px+6, px+pw-6);
+      p.ty=clamp(p.ty+sy, py+6, py+ph-6);
+    }
+  }
+
   /* ── physics: drive players toward their AI targets each substep ── */
   function applyVelocities(){
     const stop=stopDist(), arrive=unit*0.055;
@@ -1916,6 +1964,7 @@ const FootballSim = (function(){
     if(dt>0.08) dt=0.08;
     lastNow=now;
     runAI(now);
+    separate();        /* spread targets so players never stack / jitter together */
     acc+=dt;
     let steps=0; const maxSteps=reduceMotion?2:4;
     while(acc>=FIXED && steps<maxSteps){
