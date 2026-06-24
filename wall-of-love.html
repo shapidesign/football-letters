@@ -700,7 +700,7 @@ function clubColors(club){
 }
 function seatColors(club){
   if(club.seatColor) return club.seatColor;
-  return clubColors(club).p;
+  return club.p;   /* brand primary as-is — bright yellows OK on seats */
 }
 
 /* last 2 distinct club colors used in the sim */

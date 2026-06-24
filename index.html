@@ -737,7 +737,7 @@ function clubColors(club){
 }
 function seatColors(club){
   if(club.seatColor) return club.seatColor;
-  return clubColors(club).p;
+  return club.p;   /* brand primary as-is — bright yellows OK on seats */
 }
 
 /* last 2 distinct club colors used in the sim */
@@ -825,6 +825,7 @@ function show(name){
 function showStadium(){
   Object.values(screens).forEach(s=>s.classList.remove('active'));
   $('#ui').classList.add('gone');
+  $('#gate').classList.add('open');     /* ensure the entry gate never covers the pitch */
   $('#wallui').classList.add('on');
   $('#scoreboard').classList.add('on');
   if(typeof FootballSim!=='undefined'&&FootballSim.renderScoreboard) FootballSim.renderScoreboard();
