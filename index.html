@@ -84,12 +84,20 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   justify-content:space-between;cursor:default;
   transition:filter .15s;direction:rtl}
 .lm-block-inner:hover{filter:brightness(1.1)}
-    .lm-tile-name{font-size:clamp(9px,1.5vw,13px);font-weight:700;line-height:1.12;
-      white-space:normal;word-break:break-word;overflow-wrap:anywhere;overflow:hidden;
-      opacity:.95;flex-shrink:0;max-width:100%;
-      display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.lm-tile-name{font-size:clamp(9px,1.5vw,13px);font-weight:700;line-height:1.12;
+  white-space:normal;word-break:break-word;overflow-wrap:anywhere;overflow:hidden;
+  opacity:.95;flex:1;min-height:0;max-width:100%;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .lm-tile-count{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;
-  font-weight:800;line-height:.88}
+  font-weight:800;line-height:1;flex-shrink:0;align-self:flex-start}
+@media(max-width:767px){
+  .lm-inner{padding:16px 14px}
+  .lm-block{padding:2px}
+  .lm-block-inner{padding:5px 7px;gap:1px;justify-content:flex-start;border-radius:7px}
+  .lm-tile-name{-webkit-line-clamp:3;line-height:1.15;font-weight:700}
+  .lm-tile-count{font-weight:700;opacity:.9}
+  #lmGrid{min-height:160px;margin-top:10px}
+}
 
 .cta-wrap{pointer-events:auto;display:flex;flex-direction:column;align-items:center}
 .wall-cta{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;font-weight:700;font-size:clamp(15px,3.8vw,19px);
@@ -923,6 +931,13 @@ const Stadium = (function(){
     updateLegend(sorted,map);
   }
 
+  function refreshLegend(){
+    const map={};
+    S.letters.forEach((l,i)=>{(map[l.clubId]=map[l.clubId]||[]).push(i);});
+    const sorted=Object.keys(map).sort((a,b)=>map[b].length-map[a].length);
+    updateLegend(sorted,map);
+  }
+
   /* ── binary-split treemap: items[{id,v}], returns [{x,y,w,h,item}] ── */
   function treemapLayout(items,x,y,w,h){
     if(!items.length) return [];
@@ -962,6 +977,7 @@ const Stadium = (function(){
     /* estimate the rendered grid size (in px) so type scales for mobile too */
     const estGridW=Math.max(220,Math.min(780,window.innerWidth*0.96)-52);
     const estGridH=estGridW*VH/VW;
+    const mobile=window.innerWidth<768;
     rects.forEach(({x,y,w,h,item})=>{
       const club=CLUBS[item.id]; if(!club) return;
       const c=item.v;
@@ -974,19 +990,35 @@ const Stadium = (function(){
       const inner=document.createElement('div');
       inner.className='lm-block-inner';
       inner.style.background=bg; inner.style.color=tc;
-      /* actual tile size in px (minus the 3px block padding on each side) */
       const tw=(w/VW)*estGridW-6, th=(h/VH)*estGridH-6;
       const nm=document.createElement('div'); nm.className='lm-tile-name';
-      nm.textContent=cname(club);
-      /* only hide the name when the tile is genuinely too small for any text */
-      if(tw<30||th<22){ nm.style.display='none'; }
-      else { nm.style.fontSize=Math.max(8,Math.min(th*0.24,tw*0.14,14))+'px'; }
       const ct=document.createElement('div'); ct.className='lm-tile-count';
-      /* count scales with height but yields room for the name on small tiles */
-      let cfs=Math.max(12,Math.min(th*0.5,60));
-      if(th<70) cfs=Math.min(cfs,th*0.38);
-      ct.style.fontSize=cfs+'px';
-      ct.textContent=c;
+      const tiny=tw<34||th<24;
+      const small=tw<52||th<36;
+      if(mobile){
+        if(tiny){
+          nm.textContent=cname(club)+' · '+c;
+          nm.style.fontSize=Math.max(7,Math.min(th*0.34,tw*0.13,10))+'px';
+          nm.style.webkitLineClamp='2';
+          ct.style.display='none';
+        }else{
+          nm.textContent=cname(club);
+          nm.style.fontSize=Math.max(8,Math.min(th*0.30,tw*0.10,11))+'px';
+          nm.style.webkitLineClamp=small?'2':'3';
+          let cfs=Math.max(8,Math.min(th*0.20,tw*0.11,12));
+          if(small) cfs=Math.max(7,Math.min(cfs,10));
+          ct.style.fontSize=cfs+'px';
+          ct.textContent=c;
+        }
+      }else{
+        nm.textContent=cname(club);
+        if(tw<30||th<22){ nm.style.display='none'; }
+        else { nm.style.fontSize=Math.max(8,Math.min(th*0.24,tw*0.14,14))+'px'; }
+        let cfs=Math.max(12,Math.min(th*0.5,60));
+        if(th<70) cfs=Math.min(cfs,th*0.38);
+        ct.style.fontSize=cfs+'px';
+        ct.textContent=c;
+      }
       inner.append(nm,ct); block.append(inner); grid.appendChild(block);
     });
   }
@@ -1240,7 +1272,7 @@ const Stadium = (function(){
     requestAnimationFrame(frame);
   }
 
-  return {init,relayout,assign,zoomToMySeat,zoomToLetter,openSeatAt:onClick,getPitch:()=>pitch(),getCam:()=>cam};
+  return {init,relayout,assign,refreshLegend,zoomToMySeat,zoomToLetter,openSeatAt:onClick,getPitch:()=>pitch(),getCam:()=>cam};
 })();
 
 /* ── FootballSim ──
@@ -2391,7 +2423,7 @@ $('#enterBtn').onclick=()=>{
 };
 
 /* ── legend modal ── */
-$('#legendBtn').onclick=()=>$('#legendModal').classList.add('on');
+$('#legendBtn').onclick=()=>{ if(typeof Stadium!=='undefined'&&Stadium.refreshLegend) Stadium.refreshLegend(); $('#legendModal').classList.add('on'); };
 $('#legendClose').onclick=()=>$('#legendModal').classList.remove('on');
 $('#legendModal').onclick=e=>{if(e.target.id==='legendModal')$('#legendModal').classList.remove('on');};
 
