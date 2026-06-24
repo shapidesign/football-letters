@@ -84,8 +84,10 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   justify-content:space-between;cursor:default;
   transition:filter .15s;direction:rtl}
 .lm-block-inner:hover{filter:brightness(1.1)}
-    .lm-tile-name{font-size:12px;font-weight:700;line-height:1.15;
-      white-space:normal;word-break:break-word;overflow:hidden;opacity:.9}
+    .lm-tile-name{font-size:clamp(9px,1.5vw,13px);font-weight:700;line-height:1.12;
+      white-space:normal;word-break:break-word;overflow-wrap:anywhere;overflow:hidden;
+      opacity:.95;flex-shrink:0;max-width:100%;
+      display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .lm-tile-count{font-family:'Reisinger-Yonatan','Rubik',sans-serif;
   font-weight:800;line-height:.88}
 
@@ -281,6 +283,33 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   max-width:88vw;text-align:center}
 #toast span.on{opacity:1;transform:none}
 
+/* scoreboard */
+#scoreboard{position:fixed;top:max(14px,env(safe-area-inset-top));left:50%;
+  transform:translateX(-50%) translateY(-16px);z-index:30;display:none;
+  align-items:center;gap:10px;background:rgba(13,13,18,.92);
+  border:1px solid var(--border);border-radius:999px;padding:7px 14px;
+  pointer-events:none;opacity:0;transition:opacity .4s,transform .4s var(--ease)}
+#scoreboard.on{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}
+#scoreboard .sb-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;
+  box-shadow:0 0 0 1px rgba(255,255,255,.25)}
+#scoreboard .sb-num{font-family:'Reisinger-Yonatan','Rubik',sans-serif;
+  font-weight:800;font-size:20px;line-height:1;color:var(--text);min-width:14px;text-align:center}
+#scoreboard .sb-sep{color:var(--muted);font-weight:700;font-size:16px}
+
+/* persistent "someone is writing" banner */
+#writingBanner{position:fixed;top:max(14px,env(safe-area-inset-top));left:50%;
+  transform:translateX(-50%) translateY(-16px);z-index:31;display:none;
+  align-items:center;gap:8px;max-width:88vw;
+  background:linear-gradient(90deg,rgba(123,79,255,.95),rgba(13,13,18,.95));
+  color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:999px;
+  padding:9px 18px;font-size:14px;font-weight:600;pointer-events:none;
+  opacity:0;transition:opacity .4s,transform .4s var(--ease);
+  box-shadow:0 6px 24px rgba(0,0,0,.4)}
+#writingBanner.on{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}
+#writingBanner .wb-pulse{width:9px;height:9px;border-radius:50%;background:#fff;
+  flex-shrink:0;animation:wbpulse 1.1s ease-in-out infinite}
+@keyframes wbpulse{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.001ms!important;animation-duration:.001ms!important}}
 </style>
 </head>
@@ -382,6 +411,14 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   </div>
 </div>
 
+<div id="scoreboard">
+  <span class="sb-dot" id="sbDot0"></span>
+  <span class="sb-num" id="sbNum0">0</span>
+  <span class="sb-sep">-</span>
+  <span class="sb-num" id="sbNum1">0</span>
+  <span class="sb-dot" id="sbDot1"></span>
+</div>
+<div id="writingBanner"><span class="wb-pulse"></span><span id="writingBannerTxt"></span></div>
 <div id="toast"><span id="toastTxt"></span></div>
 
 <script>
@@ -453,7 +490,7 @@ const DATA = [
     {"club":"הפועל תל אביב","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/a/ac/Hapoel_Tel_Aviv_F.C.png/120px-Hapoel_Tel_Aviv_F.C.png","p":"#C8102E","s":"#ffffff"},
     {"club":"עירוני טבריה","crest":null,"p":"#00843D","s":"#003DA5"},
     {"club":"הפועל עירוני קריית שמונה","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/d/d1/Hapoel_Ironi_Kiryat_Shmona_badge.png/120px-Hapoel_Ironi_Kiryat_Shmona_badge.png","p":"#00843D","s":"#003DA5"},
-    {"club":"מכבי בני רעינה","crest":null,"p":"#00843D","s":"#003DA5"},
+    {"club":"מכבי בני ריינה","crest":"https://r2.thesportsdb.com/images/media/team/badge/b97dj21664188696.png","p":"#003DA5","s":"#00843D","seatColor":"#003DA5"},
     {"club":"מכבי חיפה","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/1/15/Maccabi_Haifa_FC_Logo_2023.png/120px-Maccabi_Haifa_FC_Logo_2023.png","p":"#00843D","s":"#ffffff"},
     {"club":"מכבי נתניה","crest":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Macca.webp/120px-Macca.webp.png","p":"#00843D","s":"#003DA5"},
     {"club":"מכבי תל אביב","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/e/e9/Maccabi_Tel_Aviv.png/120px-Maccabi_Tel_Aviv.png","p":"#FFE500","s":"#003DA5"}
@@ -496,7 +533,7 @@ const DATA = [
     {"club":"Oviedo","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/6/6e/Real_Oviedo_logo.svg/120px-Real_Oviedo_logo.svg.png","p":"#0070B8","s":"#ffffff"},
     {"club":"Rayo Vallecano","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/d/d8/Rayo_Vallecano_logo.svg/120px-Rayo_Vallecano_logo.svg.png","p":"#CC2229","s":"#ffffff"},
     {"club":"Real Betis","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/1/13/Real_betis_logo.svg/120px-Real_betis_logo.svg.png","p":"#00843D","s":"#ffffff"},
-    {"club":"Real Madrid","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/5/56/Real_Madrid_CF.svg/120px-Real_Madrid_CF.svg.png","p":"#FFFFFF","s":"#FEBE10"},
+    {"club":"Real Madrid","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/5/56/Real_Madrid_CF.svg/120px-Real_Madrid_CF.svg.png","p":"#FFFFFF","s":"#FEBE10","seatColor":"#FFFFFF"},
     {"club":"Real Sociedad","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/f/f1/Real_Sociedad_logo.svg/120px-Real_Sociedad_logo.svg.png","p":"#0F4C97","s":"#ffffff"},
     {"club":"Sevilla","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/3/3b/Sevilla_FC_logo.svg/120px-Sevilla_FC_logo.svg.png","p":"#D2122E","s":"#ffffff"},
     {"club":"Valencia","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/c/ce/Valenciacf.svg/120px-Valenciacf.svg.png","p":"#F7A500","s":"#000000"},
@@ -782,12 +819,16 @@ function show(name){
   Object.values(screens).forEach(s=>{s.classList.remove('active')});
   $('#ui').classList.remove('gone');
   $('#wallui').classList.remove('on');
+  $('#scoreboard').classList.remove('on');
   if(name) screens[name].classList.add('active');
 }
 function showStadium(){
   Object.values(screens).forEach(s=>s.classList.remove('active'));
   $('#ui').classList.add('gone');
+  $('#gate').classList.add('open');     /* ensure the entry gate never covers the pitch */
   $('#wallui').classList.add('on');
+  $('#scoreboard').classList.add('on');
+  if(typeof FootballSim!=='undefined'&&FootballSim.renderScoreboard) FootballSim.renderScoreboard();
 }
 
 /* ── STADIUM CANVAS ── */
@@ -833,7 +874,9 @@ const Stadium = (function(){
   function buildSeats(){
     seats=[];
     const {px,py,pw,ph}=pitch();
-    const ssw=sw(), ssh=sh(), step_w=ssw+SG, step_h=ssh+SG;
+    /* SPACE ×√2 on each axis → ~50% fewer seats while keeping a regular grid */
+    const DENS=Math.SQRT2;
+    const ssw=sw(), ssh=sh(), step_w=(ssw+SG)*DENS, step_h=(ssh+SG)*DENS;
     const M=6;
     // North stand
     const nTop=M+48, nBot=py-M;
@@ -916,6 +959,9 @@ const Stadium = (function(){
     /* virtual canvas 16:9 — matches modal aspect ratio */
     const VW=160,VH=90;
     const rects=treemapLayout(items,0,0,VW,VH);
+    /* estimate the rendered grid size (in px) so type scales for mobile too */
+    const estGridW=Math.max(220,Math.min(780,window.innerWidth*0.96)-52);
+    const estGridH=estGridW*VH/VW;
     rects.forEach(({x,y,w,h,item})=>{
       const club=CLUBS[item.id]; if(!club) return;
       const c=item.v;
@@ -928,14 +974,18 @@ const Stadium = (function(){
       const inner=document.createElement('div');
       inner.className='lm-block-inner';
       inner.style.background=bg; inner.style.color=tc;
+      /* actual tile size in px (minus the 3px block padding on each side) */
+      const tw=(w/VW)*estGridW-6, th=(h/VH)*estGridH-6;
       const nm=document.createElement('div'); nm.className='lm-tile-name';
       nm.textContent=cname(club);
-      if(w/VW<.11||h/VH<.14) nm.style.display='none';
-      else if(w/VW<.2) nm.style.fontSize='10px';
+      /* only hide the name when the tile is genuinely too small for any text */
+      if(tw<30||th<22){ nm.style.display='none'; }
+      else { nm.style.fontSize=Math.max(8,Math.min(th*0.24,tw*0.14,14))+'px'; }
       const ct=document.createElement('div'); ct.className='lm-tile-count';
-      /* font size: proportional to block height, capped for large blocks */
-      const fs=Math.max(13,Math.min(h/VH*130,66));
-      ct.style.fontSize=fs+'px';
+      /* count scales with height but yields room for the name on small tiles */
+      let cfs=Math.max(12,Math.min(th*0.5,60));
+      if(th<70) cfs=Math.min(cfs,th*0.38);
+      ct.style.fontSize=cfs+'px';
       ct.textContent=c;
       inner.append(nm,ct); block.append(inner); grid.appendChild(block);
     });
@@ -1047,9 +1097,7 @@ const Stadium = (function(){
     camAnim=requestAnimationFrame(tick);
   }
 
-  function zoomToMySeat(){
-    const idx=S.pendingMyIndex;
-    const seat=seats.find(s=>s.li===idx);
+  function zoomToSeat(seat){
     if(!seat) return;
     const ts=6;
     const tx=W/2-seat.x*ts, ty=H/2-seat.y*ts;
@@ -1062,6 +1110,13 @@ const Stadium = (function(){
       };
       blinkSeat();
     });
+  }
+  function zoomToMySeat(){
+    zoomToSeat(seats.find(s=>s.li===S.pendingMyIndex));
+  }
+  /* zoom to whichever seat a given letter index landed on (desktop display) */
+  function zoomToLetter(letterIdx){
+    zoomToSeat(seats.find(s=>s.li===letterIdx));
   }
 
   function frame(now){
@@ -1185,7 +1240,7 @@ const Stadium = (function(){
     requestAnimationFrame(frame);
   }
 
-  return {init,relayout,assign,zoomToMySeat,openSeatAt:onClick,getPitch:()=>pitch(),getCam:()=>cam};
+  return {init,relayout,assign,zoomToMySeat,zoomToLetter,openSeatAt:onClick,getPitch:()=>pitch(),getCam:()=>cam};
 })();
 
 /* ── FootballSim ──
@@ -1200,6 +1255,7 @@ const FootballSim = (function(){
   let gk0='#f6ff00', gk1='#00e676';
   let lastNow=0, kickoffTeam=0, lastTurnover=0, lastAttTeam=0, acc=0;
   let match={phase:'kickoff', phaseUntil:0, passCount:0};
+  let score=[0,0];                        /* live match score [team0, team1] */
   const FIXED=1/60;                       /* fixed physics timestep (s) */
   const BALL_K=0.014*60;                  /* ball air-drag decay rate (1/s) — tuned slower */
   const STAND_VEL=0.014;                  /* below this speed, freeze idle motion */
@@ -1700,19 +1756,35 @@ const FootballSim = (function(){
     lastTurnover=now;
   }
 
+  /* team `conceding` let one in → the other team scored */
+  function onGoal(conceding,now){ score[1-conceding]++; renderScoreboard(); resetKickoff(conceding,now); }
+
   function detectGoal(bx,by,now){
     const{px,py,pw,ph,portrait}=pr;
     if(!portrait){
       const cyM=py+ph/2, mh=ph*0.108, inMouth=Math.abs(by-cyM)<mh/2;
-      if(inMouth && bx<=px+ballR){ resetKickoff(0,now); return true; }
-      if(inMouth && bx>=px+pw-ballR){ resetKickoff(1,now); return true; }
+      if(inMouth && bx<=px+ballR){ onGoal(0,now); return true; }
+      if(inMouth && bx>=px+pw-ballR){ onGoal(1,now); return true; }
     } else {
       const cxM=px+pw/2, mw=pw*0.108, inMouth=Math.abs(bx-cxM)<mw/2;
-      if(inMouth && by<=py+ballR){ resetKickoff(0,now); return true; }
-      if(inMouth && by>=py+ph-ballR){ resetKickoff(1,now); return true; }
+      if(inMouth && by<=py+ballR){ onGoal(0,now); return true; }
+      if(inMouth && by>=py+ph-ballR){ onGoal(1,now); return true; }
     }
     return false;
   }
+
+  /* ── scoreboard DOM ── */
+  function renderScoreboard(){
+    const d0=document.getElementById('sbDot0'), d1=document.getElementById('sbDot1');
+    const n0=document.getElementById('sbNum0'), n1=document.getElementById('sbNum1');
+    if(d0) d0.style.background=teamColor0;
+    if(d1) d1.style.background=teamColor1;
+    if(n0) n0.textContent=score[0];
+    if(n1) n1.textContent=score[1];
+  }
+  function resetScore(){ score=[0,0]; renderScoreboard(); }
+  /* reset the score once an hour */
+  setInterval(resetScore, 3600000);
 
   /* after each physics substep: goals + ball capture (incl. GK saves) */
   function postStep(now){
@@ -1840,8 +1912,6 @@ const FootballSim = (function(){
       gfx.fillStyle(0xf2c9a0,1); gfx.fillCircle(x, y-playerR*0.55, playerR*0.5);    /* head */
       gfx.lineStyle(Math.max(0.8,playerR*0.10), 0x8a5a3a,0.6);
       gfx.strokeCircle(x, y-playerR*0.55, playerR*0.5);
-      if(vl>0.05){ p._fx+=(vx/vl-p._fx)*0.16; p._fy+=(vy/vl-p._fy)*0.16; const fl=Math.hypot(p._fx,p._fy)||1; const ix=p._fx/fl, iy=p._fy/fl; gfx.lineStyle(Math.max(1,playerR*0.16),0xffffff,0.5);
-        gfx.lineBetween(x,y, x+ix*playerR*1.2, y+iy*playerR*1.2); }                 /* facing tick */
       if(p.hasBall){ gfx.lineStyle(Math.max(1.5,playerR*0.22),0xffffff,0.95);
         gfx.strokeEllipse(x,y, playerR*2.5, playerR*2.85); }                        /* possession ring */
     });
@@ -1865,8 +1935,9 @@ const FootballSim = (function(){
   function setTeamColors(c0,c1){
     teamColor0=sanitizeColor(c0); teamColor1=sanitizeColor(c1);
     gk0=gkColorFor(teamColor0,teamColor1); gk1=gkColorFor(teamColor1,teamColor0);
+    renderScoreboard();
   }
-  return{reinit,update,draw,setTeamColors,setTeamColor:(p)=>setTeamColors(p,bestContrast(p))};
+  return{reinit,update,draw,setTeamColors,setTeamColor:(p)=>setTeamColors(p,bestContrast(p)),renderScoreboard,resetScore};
 })();
 
 /* ── reader ── */
@@ -2060,7 +2131,7 @@ async function joinWall(){
   hideBack();
   broadcastOnline();
   $('#ui').classList.add('gone');
-  setTimeout(()=>{showStadium();Stadium.relayout(true);},650);
+  setTimeout(()=>{showStadium();Stadium.relayout(true);playGoalSound();},650);
   setTimeout(()=>{Stadium.zoomToMySeat();},1500);
   
   if(typeof supabaseClient !== 'undefined'){
@@ -2110,12 +2181,73 @@ $('#addBtn').onclick=()=>{
 let toastT;
 function toast(msg){const e=$('#toastTxt');e.textContent=msg;e.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('on'),3600);}
 
+/* ── desktop detection (mobile-first; desktop is the display screen) ── */
+function isDesktop(){ return window.matchMedia('(min-width:1024px) and (pointer:fine)').matches; }
+
+/* ── goal sound effect (plays a 5s clip when a letter is written) ── */
+const goalSound = new Audio('goal.mp3');
+goalSound.preload='auto';
+let audioPrimed=false;
+function primeAudio(){
+  if(audioPrimed) return;
+  audioPrimed=true;
+  /* unlock playback inside a user gesture so later auto-plays are allowed */
+  goalSound.play().then(()=>{goalSound.pause();goalSound.currentTime=0;}).catch(()=>{});
+}
+function playGoalSound(){
+  try{ goalSound.currentTime=0; goalSound.play().catch(()=>{}); }catch(e){}
+}
+/* fallback: unlock audio on the very first interaction anywhere */
+document.addEventListener('pointerdown',primeAudio,{once:true});
+
+/* ── persistent "someone is writing" banner ── */
+function setWritingBanner(clubName){
+  const b=$('#writingBanner');
+  if(clubName){
+    $('#writingBannerTxt').textContent='מישהו כותב מכתב אהבה ל'+clubName+' ✉️';
+    b.classList.add('on');
+    $('#scoreboard').classList.remove('on');           /* avoid overlap at top-center */
+  } else {
+    b.classList.remove('on');
+    if($('#wallui').classList.contains('on')) $('#scoreboard').classList.add('on');
+  }
+}
+/* recompute the banner from the full presence state */
+function refreshWritingBanner(){
+  if(!broadcastChannel) return;
+  let writingClub=null;
+  try{
+    const state=broadcastChannel.presenceState();
+    Object.values(state).forEach(arr=>arr.forEach(p=>{
+      if(p.id!==myId && p.status && p.status.startsWith('writing:')){
+        const club=CLUBS[p.status.slice(8)];
+        if(club) writingClub=cname(club);
+      }
+    }));
+  }catch(e){}
+  setWritingBanner(writingClub);
+}
+
+/* a new letter appeared on the wall → animate, (desktop) zoom, play sound */
+function onNewLetter(letterIdx){
+  if(letterIdx>=0 && S.letters[letterIdx]) S.letters[letterIdx]._born=performance.now();
+  if(typeof Stadium!=='undefined' && Stadium.assign) Stadium.assign();
+  if($('#wallui').classList.contains('on')){
+    playGoalSound();
+    if(isDesktop() && typeof Stadium!=='undefined' && Stadium.zoomToLetter){
+      setTimeout(()=>Stadium.zoomToLetter(letterIdx),350);
+    }
+  }
+}
+
 /* ── entrance animation ── */
 $('#enterBtn').onclick=()=>{
   hideBack();
+  primeAudio();
   $('#ui').classList.add('gone');
   setTimeout(()=>$('#gate').classList.add('open'),200);
-  setTimeout(()=>$('#wallui').classList.add('on'),1050);
+  setTimeout(()=>{$('#wallui').classList.add('on');$('#scoreboard').classList.add('on');
+    if(typeof FootballSim!=='undefined'&&FootballSim.renderScoreboard) FootballSim.renderScoreboard();},1050);
 };
 
 /* ── legend modal ── */
@@ -2150,9 +2282,7 @@ async function initSupabase(){
         const l = payload.new;
         if (!S.letters.some(existing => existing.id === l.id || (existing.text === l.text && existing.clubId === l.club_id))) {
           S.letters.push({ clubId: l.club_id, text: l.text, len: l.len, id: l.id });
-          if (typeof Stadium !== 'undefined' && Stadium.assign) {
-            Stadium.assign();
-          }
+          onNewLetter(S.letters.length-1);   /* animate + (desktop) zoom + goal sound */
         }
       })
       .subscribe();
@@ -2160,14 +2290,11 @@ async function initSupabase(){
     // 3. Realtime Presence for broadcasting
     broadcastChannel = supabaseClient.channel('room-1');
     broadcastChannel.on('presence', { event: 'sync' }, () => {
+      refreshWritingBanner();        /* keep the writing banner in sync the whole time */
     }).on('presence', { event: 'join' }, ({ key, newPresences }) => {
-      newPresences.forEach(p => {
-        if(p.status && p.status.startsWith('writing:') && p.id !== myId) {
-          const clubId = p.status.slice(8);
-          const club = CLUBS[clubId];
-          if(club) toast('מישהו שולח מכתב אהבה ל'+cname(club)+' ✉️');
-        }
-      });
+      refreshWritingBanner();
+    }).on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+      refreshWritingBanner();
     })
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
