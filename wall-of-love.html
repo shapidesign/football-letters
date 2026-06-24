@@ -12,9 +12,9 @@
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 <style>
 @font-face {
-  font-family: 'Reisinger-Yonatan';
-  src: url('./Reisinger-Yonatan-Regular.woff') format('woff'),
-       url('./Reisinger-Yonatan-Regular.ttf') format('truetype');
+  font-family: 'Reisinger-Yarden-MaccabiahRound';
+  src: url('./Reisinger-Yarden-MaccabiahRound.woff2') format('woff2'),
+       url('./Reisinger-Yarden-MaccabiahRound.woff') format('woff');
   font-weight: 400 800;
   font-style: normal;
   font-display: swap;
@@ -88,11 +88,11 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
       white-space:normal;word-break:break-word;overflow-wrap:anywhere;overflow:hidden;
       opacity:.95;flex-shrink:0;max-width:100%;
       display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
-.lm-tile-count{font-family:'Reisinger-Yonatan','Rubik',sans-serif;
+.lm-tile-count{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;
   font-weight:800;line-height:.88}
 
 .cta-wrap{pointer-events:auto;display:flex;flex-direction:column;align-items:center}
-.wall-cta{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-weight:700;font-size:clamp(15px,3.8vw,19px);
+.wall-cta{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;font-weight:700;font-size:clamp(15px,3.8vw,19px);
   color:var(--oc);background:var(--cp);border:none;border-radius:999px;
   padding:16px 32px;cursor:pointer;white-space:nowrap;
   box-shadow:0 8px 32px -8px var(--cg);
@@ -116,9 +116,9 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 .screen.active{opacity:1;pointer-events:auto;visibility:visible;transform:none}
 
 /* intro */
-.intro-badge{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+.intro-badge{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
   color:var(--cp);background:rgba(123,79,255,.12);padding:6px 16px;border-radius:999px}
-.intro-h{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:clamp(36px,9vw,56px);font-weight:800;line-height:1.12;
+.intro-h{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;font-size:clamp(36px,9vw,56px);font-weight:800;line-height:1.12;
   text-align:center;letter-spacing:-.03em;margin:0}
 .intro-p{font-size:clamp(16px,4vw,20px);color:var(--muted);text-align:center;
   line-height:1.7;max-width:22em}
@@ -129,7 +129,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 .intro-btn:active{transform:scale(.97)}
 
 /* entry */
-.stitle{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:clamp(22px,5.5vw,34px);font-weight:700;text-align:center;
+.stitle{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;font-size:clamp(22px,5.5vw,34px);font-weight:700;text-align:center;
   line-height:1.35;letter-spacing:-.02em}
 .ssub{font-size:16px;color:var(--muted);text-align:center}
 .grid-c{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;width:100%}
@@ -167,7 +167,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 .cpill-name{font-size:16px;font-weight:600;color:var(--text)}
 
 /* write */
-.write-h{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:clamp(20px,5vw,30px);font-weight:700;text-align:center;
+.write-h{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;font-size:clamp(20px,5vw,30px);font-weight:700;text-align:center;
   line-height:1.4;max-width:18em}
 .sugg-grid{display:flex;flex-direction:column;gap:10px;width:100%}
 @media(min-width:500px){.sugg-grid{display:grid;grid-template-columns:1fr 1fr}}
@@ -196,7 +196,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 .addr.striking{text-decoration:line-through;color:var(--muted)}
 .lbody{font-size:20px;line-height:1.85;white-space:pre-wrap;word-break:break-word}
 .lbody .swapped{font-weight:700;border-bottom:2px solid var(--cp)}
-.rev-prompt{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:clamp(20px,5vw,26px);font-weight:600;text-align:center;
+.rev-prompt{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;font-size:clamp(20px,5vw,26px);font-weight:600;text-align:center;
   max-width:18em;line-height:1.5;opacity:0;transition:opacity .9s var(--ease)}
 .people-g{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
   max-width:480px;opacity:0;transition:opacity .9s var(--ease)}
@@ -221,7 +221,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 .show{opacity:1!important}
 
 /* consent */
-.ctitle{font-family:'Reisinger-Yonatan','Rubik',sans-serif;font-size:clamp(20px,5vw,28px);font-weight:700;text-align:center;
+.ctitle{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;font-size:clamp(20px,5vw,28px);font-weight:700;text-align:center;
   line-height:1.4;max-width:18em}
 .cethics{font-size:14px;color:var(--muted);text-align:center;max-width:26em;line-height:1.65}
 .phone-panel{width:100%;max-width:360px;display:none;flex-direction:column;
@@ -292,7 +292,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 #scoreboard.on{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}
 #scoreboard .sb-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;
   box-shadow:0 0 0 1px rgba(255,255,255,.25)}
-#scoreboard .sb-num{font-family:'Reisinger-Yonatan','Rubik',sans-serif;
+#scoreboard .sb-num{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;
   font-weight:800;font-size:20px;line-height:1;color:var(--text);min-width:14px;text-align:center}
 #scoreboard .sb-sep{color:var(--muted);font-weight:700;font-size:16px}
 
@@ -2125,6 +2125,7 @@ $('#sendWA').onclick=()=>{
 $('#notNow').onclick=()=>{toast('לא עכשיו. אבל המילים נשארות איתך.');joinWall();};
 
 async function joinWall(){
+  primeAudio();
   const myLocalLetter = {clubId:S.club.id,text:S.text,len:S.text.length};
   S.letters.push(myLocalLetter);
   S.pendingMyIndex=S.letters.length-1;
@@ -2138,7 +2139,7 @@ async function joinWall(){
     const { data } = await supabaseClient.from('letters').insert([
       { club_id: S.club.id, text: S.text, len: S.text.length }
     ]).select();
-    if(data && data[0]) myLocalLetter.id = data[0].id;
+    if(data && data[0]){ myLocalLetter.id=data[0].id; skipSoundForLetterId=data[0].id; }
   }
 }
 
@@ -2184,20 +2185,26 @@ function toast(msg){const e=$('#toastTxt');e.textContent=msg;e.classList.add('on
 /* ── desktop detection (mobile-first; desktop is the display screen) ── */
 function isDesktop(){ return window.matchMedia('(min-width:1024px) and (pointer:fine)').matches; }
 
-/* ── goal sound effect (plays a 5s clip when a letter is written) ── */
+/* ── goal sound effect (plays only when a letter is submitted) ── */
 const goalSound = new Audio('goal.mp3');
 goalSound.preload='auto';
 let audioPrimed=false;
+let skipSoundForLetterId=null;          /* suppress duplicate when our own insert echoes back */
 function primeAudio(){
   if(audioPrimed) return;
   audioPrimed=true;
-  /* unlock playback inside a user gesture so later auto-plays are allowed */
-  goalSound.play().then(()=>{goalSound.pause();goalSound.currentTime=0;}).catch(()=>{});
+  /* unlock playback silently inside a user gesture */
+  const vol=goalSound.volume;
+  goalSound.volume=0;
+  goalSound.play().then(()=>{
+    goalSound.pause(); goalSound.currentTime=0; goalSound.volume=vol;
+  }).catch(()=>{ goalSound.volume=vol; });
 }
 function playGoalSound(){
+  if(!audioPrimed) return;
   try{ goalSound.currentTime=0; goalSound.play().catch(()=>{}); }catch(e){}
 }
-/* fallback: unlock audio on the very first interaction anywhere */
+/* silent unlock on first interaction so submit-time playback is allowed */
 document.addEventListener('pointerdown',primeAudio,{once:true});
 
 /* ── persistent "someone is writing" banner ── */
@@ -2228,12 +2235,14 @@ function refreshWritingBanner(){
   setWritingBanner(writingClub);
 }
 
-/* a new letter appeared on the wall → animate, (desktop) zoom, play sound */
+/* a new letter was submitted → animate wall, (desktop) zoom; sound only for remote inserts */
 function onNewLetter(letterIdx){
   if(letterIdx>=0 && S.letters[letterIdx]) S.letters[letterIdx]._born=performance.now();
   if(typeof Stadium!=='undefined' && Stadium.assign) Stadium.assign();
   if($('#wallui').classList.contains('on')){
-    playGoalSound();
+    const letter=S.letters[letterIdx];
+    if(letter && letter.id!==skipSoundForLetterId) playGoalSound();
+    if(letter && letter.id===skipSoundForLetterId) skipSoundForLetterId=null;
     if(isDesktop() && typeof Stadium!=='undefined' && Stadium.zoomToLetter){
       setTimeout(()=>Stadium.zoomToLetter(letterIdx),350);
     }
@@ -2243,7 +2252,6 @@ function onNewLetter(letterIdx){
 /* ── entrance animation ── */
 $('#enterBtn').onclick=()=>{
   hideBack();
-  primeAudio();
   $('#ui').classList.add('gone');
   setTimeout(()=>$('#gate').classList.add('open'),200);
   setTimeout(()=>{$('#wallui').classList.add('on');$('#scoreboard').classList.add('on');
