@@ -2334,32 +2334,37 @@ function playGoalSound(){
 /* silent unlock on first interaction so submit-time playback is allowed */
 document.addEventListener('pointerdown',primeAudio,{once:true});
 
-/* ── persistent "someone is writing" banner ── */
-function setWritingBanner(clubName){
-  const b=$('#writingBanner');
-  if(clubName){
-    $('#writingBannerTxt').textContent='מישהו כותב מכתב אהבה ל'+clubName+' ✉️';
-    b.classList.add('on');
-    $('#scoreboard').classList.remove('on');           /* avoid overlap at top-center */
-  } else {
-    b.classList.remove('on');
-    if($('#wallui').classList.contains('on')) $('#scoreboard').classList.add('on');
-  }
+/* ── "someone is writing" banner: shows for 10s each time a new writer starts ── */
+let writingBannerT=null;
+let seenWriters=new Set();      /* writer ids already announced (avoid re-triggering) */
+function showWritingBanner(clubName){
+  $('#writingBannerTxt').textContent='מישהו כותב מכתב אהבה ל'+clubName+' ✉️';
+  $('#writingBanner').classList.add('on');
+  $('#scoreboard').classList.remove('on');             /* avoid overlap at top-center */
+  clearTimeout(writingBannerT);
+  writingBannerT=setTimeout(hideWritingBanner,10000);  /* visible for 10 seconds */
 }
-/* recompute the banner from the full presence state */
+function hideWritingBanner(){
+  $('#writingBanner').classList.remove('on');
+  if($('#wallui').classList.contains('on')) $('#scoreboard').classList.add('on');
+}
+/* fire a fresh 10s banner whenever someone NEW starts writing */
 function refreshWritingBanner(){
   if(!broadcastChannel) return;
-  let writingClub=null;
+  const current=new Set();
   try{
     const state=broadcastChannel.presenceState();
     Object.values(state).forEach(arr=>arr.forEach(p=>{
       if(p.id!==myId && p.status && p.status.startsWith('writing:')){
-        const club=CLUBS[p.status.slice(8)];
-        if(club) writingClub=cname(club);
+        current.add(p.id);
+        if(!seenWriters.has(p.id)){                    /* just started writing */
+          const club=CLUBS[p.status.slice(8)];
+          if(club) showWritingBanner(cname(club));
+        }
       }
     }));
   }catch(e){}
-  setWritingBanner(writingClub);
+  seenWriters=current;   /* writers who stopped are dropped, so they can retrigger later */
 }
 
 /* a new letter was submitted → animate wall, (desktop) zoom; sound only for remote inserts */
