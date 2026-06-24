@@ -695,17 +695,12 @@ function bestContrast(against){
   return CONTRAST_COLORS.reduce((b,c)=>colorDist(c,against)>colorDist(b,against)?c:b,CONTRAST_COLORS[0]);
 }
 
-const PITCH_GREEN='#2a7d3a';
-const MIN_PITCH_DIST=55;
 function clubColors(club){
   return{p:sanitizeColor(club._crestP||club.p),s:sanitizeColor(club._crestS||club.s)};
 }
 function seatColors(club){
-  const{p,s}=clubColors(club);
-  const dp=colorDist(p,PITCH_GREEN),ds=colorDist(s,PITCH_GREEN);
-  if(dp<MIN_PITCH_DIST&&ds>=MIN_PITCH_DIST) return s;
-  if(ds<MIN_PITCH_DIST&&dp>=MIN_PITCH_DIST) return p;
-  return dp>=ds?p:s;
+  if(club.seatColor) return club.seatColor;
+  return clubColors(club).p;
 }
 
 /* last 2 distinct club colors used in the sim */

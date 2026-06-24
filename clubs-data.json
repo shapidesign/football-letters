@@ -75,11 +75,12 @@
         "s": "#003DA5"
       },
       {
-        "club": "מכבי בני רעינה",
+        "club": "מכבי בני ריינה",
         "wiki": "Maccabi_Bnei_Reineh_F.C.",
-        "crest": null,
-        "p": "#00843D",
-        "s": "#003DA5"
+        "crest": "https://r2.thesportsdb.com/images/media/team/badge/b97dj21664188696.png",
+        "p": "#003DA5",
+        "s": "#00843D",
+        "seatColor": "#003DA5"
       },
       {
         "club": "מכבי חיפה",
@@ -366,7 +367,8 @@
         "wiki": "Real_Madrid_CF",
         "crest": "https://upload.wikimedia.org/wikipedia/en/thumb/5/56/Real_Madrid_CF.svg/120px-Real_Madrid_CF.svg.png",
         "p": "#FFFFFF",
-        "s": "#FEBE10"
+        "s": "#FEBE10",
+        "seatColor": "#FFFFFF"
       },
       {
         "club": "Real Sociedad",
