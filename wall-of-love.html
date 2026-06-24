@@ -1352,6 +1352,11 @@ const FootballSim = (function(){
   let ball={x:0,y:0,holderIdx:-1,inFlight:false,mode:'pass',shooterTeam:0,
             targetIdx:-1,kickCdUntil:0,lastKickerIdx:-1};
 
+  /* anti-stuck watchdog: every kick/possession event re-arms a 3–5s deadline;
+     if it lapses the ball is force-kicked (held) or force-collected (loose) */
+  let kickDeadline=0;
+  function armKick(now){ kickDeadline=now+3000+Math.random()*2000; }
+
   /* physics handles */
   let engine=null, world=null, ballBody=null;
   let unit=300, playerR=8, ballR=4, margin=16;
@@ -1810,6 +1815,38 @@ const FootballSim = (function(){
     }
   }
 
+  /* ── hard player-vs-player resolution: positional de-overlap + bounce ──
+     Players' velocities are hard-set each substep, so Matter's own contact
+     solver can't separate them (it gets overwritten). We resolve manually:
+     never let two bodies overlap, and reflect the closing velocity so they
+     visibly bounce apart instead of stacking and flickering. */
+  function resolveCollisions(){
+    const n=players.length, minD=playerR*2, minD2=minD*minD, e=0.45;
+    for(let iter=0;iter<2;iter++){           /* a couple passes settle multi-contacts */
+      for(let i=0;i<n;i++){
+        const a=players[i], ba=a.body; if(!ba) continue;
+        for(let j=i+1;j<n;j++){
+          const b=players[j], bb=b.body; if(!bb) continue;
+          let dx=bb.position.x-ba.position.x, dy=bb.position.y-ba.position.y;
+          let d2=dx*dx+dy*dy;
+          if(d2>=minD2){ continue; }
+          if(d2<1e-4){ const ang=Math.random()*6.283; dx=Math.cos(ang); dy=Math.sin(ang); d2=1; }
+          const d=Math.sqrt(d2)||0.001, nx=dx/d, ny=dy/d;
+          const push=(minD-d)*0.5;           /* split the overlap between both */
+          M.Body.setPosition(ba,{x:ba.position.x-nx*push, y:ba.position.y-ny*push});
+          M.Body.setPosition(bb,{x:bb.position.x+nx*push, y:bb.position.y+ny*push});
+          const va=ba.velocity, vb=bb.velocity;
+          const rvn=(vb.x-va.x)*nx+(vb.y-va.y)*ny;   /* closing speed along normal */
+          if(rvn<0){                          /* only bounce when approaching */
+            const jimp=-(1+e)*rvn*0.5;
+            M.Body.setVelocity(ba,{x:va.x-nx*jimp, y:va.y-ny*jimp});
+            M.Body.setVelocity(bb,{x:vb.x+nx*jimp, y:vb.y+ny*jimp});
+          }
+        }
+      }
+    }
+  }
+
   /* ── physics: drive players toward their AI targets each substep ── */
   function applyVelocities(){
     const stop=stopDist(), arrive=unit*0.055;
@@ -1873,6 +1910,7 @@ const FootballSim = (function(){
     ball.targetIdx=idx; ball.lastKickerIdx=prev; ball.kickCdUntil=now+260;
     ball._standRx=ball._standRy=null;
     match.phase='pass'; match.phaseUntil=now+900; match.passCount++;
+    armKick(now);
   }
   function shoot(shooter,team,now,accurate){
     const goal=goalPos(team);
@@ -1889,6 +1927,7 @@ const FootballSim = (function(){
     ball.targetIdx=-1; ball.lastKickerIdx=prev; ball.kickCdUntil=now+260;
     ball._standRx=ball._standRy=null;
     match.phase='shot'; match.phaseUntil=now+1600;
+    armKick(now);
   }
   function capture(i,now){
     players.forEach(p=>p.hasBall=false);
@@ -1908,6 +1947,7 @@ const FootballSim = (function(){
       p.passAt=now+(pressure?850+Math.random()*550:1300+Math.random()*900);
     }
     lastTurnover=now;
+    armKick(now);
   }
 
   /* team `conceding` let one in → the other team scored */
@@ -1984,6 +2024,43 @@ const FootballSim = (function(){
     ball.x=cx; ball.y=cy; ball.rx=cx; ball.ry=cy; ball._standRx=ball._standRy=null; ball.holderIdx=idx; ball.inFlight=false; ball.mode='pass';
     ball.targetIdx=-1; ball.shooterTeam=team; ball.kickCdUntil=now; ball.lastKickerIdx=-1;
     trailPts.length=0; trailAt=0;
+    armKick(now);
+  }
+
+  /* ── anti-stuck watchdog ── */
+  function ballWatchdog(now){
+    if(!ballBody) return;
+    if(!kickDeadline){ armKick(now); return; }
+    if(now<kickDeadline) return;
+    if(ball.holderIdx>=0) forceCarrierKick(now);
+    else forceLooseCapture(now);
+  }
+  /* held too long → pass to the most advanced open team-mate, else clear */
+  function forceCarrierKick(now){
+    const holder=players[ball.holderIdx];
+    if(!holder){ armKick(now); return; }
+    const attTeam=holder.team, myProg=progressAlong(attTeam,holder.x,holder.y);
+    let best=-1,bestScore=-Infinity;
+    players.forEach((p,i)=>{
+      if(i===ball.holderIdx||p.team!==attTeam||p.role==='GK'||!p.body) return;
+      const tp=progressAlong(attTeam,p.x,p.y);
+      const{dist:space}=nearestOpp(attTeam,p.x,p.y,false);
+      const sc=(tp-myProg)*unit + space*0.3;
+      if(sc>bestScore){ bestScore=sc; best=i; }
+    });
+    if(best>=0) passTo(holder,players[best],best,now);
+    else shoot(holder,attTeam,now,false);     /* no outlet → hoof it upfield */
+  }
+  /* loose ball lingering → hand it to the nearest player so play never freezes */
+  function forceLooseCapture(now){
+    const bx=ballBody.position.x, by=ballBody.position.y;
+    let cap=-1,bd=Infinity;
+    for(let i=0;i<players.length;i++){
+      const p=players[i]; if(!p.body) continue;
+      const d=Math.hypot(p.body.position.x-bx,p.body.position.y-by);
+      if(d<bd){ bd=d; cap=i; }
+    }
+    if(cap>=0) capture(cap,now); else armKick(now);
   }
 
   /* ── public: step physics + AI, update positions ── */
@@ -1996,6 +2073,7 @@ const FootballSim = (function(){
     if(dt>0.08) dt=0.08;
     lastNow=now;
     runAI(now);
+    ballWatchdog(now);  /* force a kick / collection if the ball stalls (3–5s) */
     separate();        /* spread targets so players never stack / jitter together */
     acc+=dt;
     let steps=0; const maxSteps=reduceMotion?2:4;
@@ -2003,6 +2081,7 @@ const FootballSim = (function(){
       applyVelocities();
       glueBall();
       M.Engine.update(engine, FIXED*1000);
+      resolveCollisions();   /* hard de-overlap + bounce so players never stack/flicker */
       dampIdleBall();
       postStep(now);
       acc-=FIXED; steps++;
@@ -2071,8 +2150,6 @@ const FootballSim = (function(){
       gfx.fillStyle(0xf2c9a0,1); gfx.fillCircle(x, y-playerR*0.55, playerR*0.5);    /* head */
       gfx.lineStyle(Math.max(0.8,playerR*0.10), 0x8a5a3a,0.6);
       gfx.strokeCircle(x, y-playerR*0.55, playerR*0.5);
-      if(p.hasBall){ gfx.lineStyle(Math.max(1.5,playerR*0.22),0xffffff,0.95);
-        gfx.strokeEllipse(x,y, playerR*2.5, playerR*2.85); }                        /* possession ring */
     });
 
     /* ball trail */
