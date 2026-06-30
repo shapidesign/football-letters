@@ -714,7 +714,7 @@ const PROMPTS = [
 
 /* state */
 const S = { country:null, club:null, text:'', recipientLabel:null, recipientDisplay:null, letters:[], pendingMyIndex:-1 };
-SEED.forEach(([id,t]) => S.letters.push({clubId:id, text:t, len:t.length}));
+/* SEED letters are no longer shown on the wall — only real user submissions (from Supabase) are displayed. SEED is retained below solely for team-color seeding. */
 const reduceMotion = matchMedia('(prefers-reduced-motion:reduce)').matches;
 
 /* color helpers */
