@@ -1775,14 +1775,22 @@ const FootballSim = (function(){
     players.forEach((p,i)=>{
       const isAtt=p.team===attTeam;
       if(i===ball.holderIdx){ p.spd=SPD.carrier; if(p.tx==null){p.tx=p.x;p.ty=p.y;} }
-      else if(!isAtt && i===pressIdx && p.role!=='GK'){ p.tx=holder.x; p.ty=holder.y; p.spd=SPD.press; }
+      else if(!isAtt && i===pressIdx && p.role!=='GK'){
+        /* press to tackling distance, not onto the carrier — otherwise the two
+           bodies weld together on top of the ball. The tackle check below still
+           fires once we're inside its (slightly larger) reach. */
+        let dxp=p.x-holder.x, dyp=p.y-holder.y, dl=Math.hypot(dxp,dyp);
+        if(dl<1e-3){ const a=Math.random()*6.283; dxp=Math.cos(a); dyp=Math.sin(a); dl=1; }
+        const stand=playerR*2.2+ballR;
+        p.tx=holder.x+(dxp/dl)*stand; p.ty=holder.y+(dyp/dl)*stand; p.spd=SPD.press;
+      }
       else if(p.role==='GK'){ setGK(p); p.spd=SPD.gk; }
       else { setOffBall(p, attTeam, now); p.spd=isAtt?attackingSpeed(p,SPD):SPD.defHold; }
     });
 
     /* tackle (with a turnover cooldown so the ball can't ping-pong) */
     if(now-lastTurnover>700 && now>holder.passAt-1800){
-      const opp=players.find(p=>p.team!==attTeam&&p.role!=='GK'&&Math.hypot(p.x-holder.x,p.y-holder.y)<playerR*2.2+ballR);
+      const opp=players.find(p=>p.team!==attTeam&&p.role!=='GK'&&Math.hypot(p.x-holder.x,p.y-holder.y)<playerR*2.7+ballR);
       if(opp){
         const oi=players.indexOf(opp); capture(oi,now);
         opp.dribbleAt=now+500; opp.shotAt=now+2000+Math.random()*2000;
@@ -1875,7 +1883,10 @@ const FootballSim = (function(){
      never let two bodies overlap, and reflect the closing velocity so they
      visibly bounce apart instead of stacking and flickering. */
   function resolveCollisions(){
-    const n=players.length, minD=playerR*2, minD2=minD*minD, e=0.45;
+    /* minD matches the rendered jersey ellipse (≈2.15·playerR tall) so bodies
+       never visually overlap, not just their physics circles. */
+    const n=players.length, minD=playerR*2.2, minD2=minD*minD, e=0.45;
+    const carrier=ball.holderIdx;
     for(let iter=0;iter<2;iter++){           /* a couple passes settle multi-contacts */
       for(let i=0;i<n;i++){
         const a=players[i], ba=a.body; if(!ba) continue;
@@ -1886,12 +1897,16 @@ const FootballSim = (function(){
           if(d2>=minD2){ continue; }
           if(d2<1e-4){ const ang=Math.random()*6.283; dx=Math.cos(ang); dy=Math.sin(ang); d2=1; }
           const d=Math.sqrt(d2)||0.001, nx=dx/d, ny=dy/d;
-          const push=(minD-d)*0.5;           /* split the overlap between both */
-          M.Body.setPosition(ba,{x:ba.position.x-nx*push, y:ba.position.y-ny*push});
-          M.Body.setPosition(bb,{x:bb.position.x+nx*push, y:bb.position.y+ny*push});
+          const overlap=minD-d;
+          /* the ball carrier holds its ground so the glued ball is never jostled;
+             two free players split the push, otherwise the free one yields fully. */
+          let wa=0.5, wb=0.5;
+          if(i===carrier){ wa=0; wb=1; } else if(j===carrier){ wa=1; wb=0; }
+          M.Body.setPosition(ba,{x:ba.position.x-nx*overlap*wa, y:ba.position.y-ny*overlap*wa});
+          M.Body.setPosition(bb,{x:bb.position.x+nx*overlap*wb, y:bb.position.y+ny*overlap*wb});
           const va=ba.velocity, vb=bb.velocity;
           const rvn=(vb.x-va.x)*nx+(vb.y-va.y)*ny;   /* closing speed along normal */
-          if(rvn<0){                          /* only bounce when approaching */
+          if(rvn<0 && i!==carrier && j!==carrier){    /* bounce free players; never the carrier */
             const jimp=-(1+e)*rvn*0.5;
             M.Body.setVelocity(ba,{x:va.x-nx*jimp, y:va.y-ny*jimp});
             M.Body.setVelocity(bb,{x:vb.x+nx*jimp, y:vb.y+ny*jimp});
