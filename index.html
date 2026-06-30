@@ -2112,6 +2112,22 @@ const FootballSim = (function(){
     if(ball.holderIdx>=0) forceCarrierKick(now);
     else forceLooseCapture(now);
   }
+  /* position-based stall watch: the event watchdog above re-arms on every
+     capture, so a ball trading hands between two players in one spot never
+     trips it. This one watches the ball's *position* — if it hasn't left a
+     small radius for ~1.1s (held or loose), force it moving. Symptom-based,
+     so no ping-pong can suppress it. */
+  let stallX=null, stallY=null, stallSince=0;
+  function ballStallWatch(now){
+    if(!ballBody) return;
+    if(stallX==null || Math.hypot(ball.x-stallX,ball.y-stallY)>unit*0.05){
+      stallX=ball.x; stallY=ball.y; stallSince=now; return;
+    }
+    if(now-stallSince<1100) return;
+    if(ball.holderIdx>=0) forceCarrierKick(now);   /* pass/hoof it out of the standoff */
+    else { loserLockUntil=0; forceLooseCapture(now); }  /* drop the lock so someone grabs it */
+    stallX=ball.x; stallY=ball.y; stallSince=now;
+  }
   /* held too long → pass to the most advanced open team-mate, else clear */
   function forceCarrierKick(now){
     const holder=players[ball.holderIdx];
@@ -2151,6 +2167,7 @@ const FootballSim = (function(){
     lastNow=now;
     runAI(now);
     ballWatchdog(now);  /* force a kick / collection if the ball stalls (3–5s) */
+    ballStallWatch(now);  /* force it moving if the ball parks in one spot (~1.1s) */
     separate();        /* spread targets so players never stack / jitter together */
     acc+=dt;
     let steps=0; const maxSteps=reduceMotion?2:4;
