@@ -296,13 +296,23 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   transform:translateX(-50%) translateY(-16px);z-index:30;display:none;
   align-items:center;gap:10px;background:rgba(13,13,18,.92);
   border:1px solid var(--border);border-radius:999px;padding:7px 14px;
-  pointer-events:none;opacity:0;transition:opacity .4s,transform .4s var(--ease)}
-#scoreboard.on{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}
+  pointer-events:auto;cursor:pointer;opacity:0;transition:opacity .4s,transform .4s var(--ease)}
+#scoreboard.on{display:flex;opacity:1;transform:translateX(-50%) translateY(0);animation:sbGlow 2.6s ease-in-out infinite}
+#scoreboard:hover{filter:brightness(1.12)}
+#scoreboard:active{transform:translateX(-50%) scale(.96)}
+@keyframes sbGlow{0%,100%{box-shadow:0 0 0 1px rgba(255,255,255,.06),0 4px 18px -6px rgba(255,255,255,.35)}50%{box-shadow:0 0 0 1px rgba(255,255,255,.12),0 6px 30px -2px rgba(255,255,255,.6)}}
 #scoreboard .sb-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;
   box-shadow:0 0 0 1px rgba(255,255,255,.25)}
 #scoreboard .sb-num{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;
   font-weight:800;font-size:20px;line-height:1;color:var(--text);min-width:14px;text-align:center}
 #scoreboard .sb-sep{color:var(--muted);font-weight:700;font-size:16px}
+/* hover crest (desktop) — floats above the cursor over a seat */
+#hoverCrest{position:fixed;width:46px;height:46px;border-radius:50%;background-size:contain;
+  background-repeat:no-repeat;background-position:center;background-color:#fff;
+  border:2px solid rgba(255,255,255,.65);box-shadow:0 6px 18px rgba(0,0,0,.55);
+  pointer-events:none;z-index:40;opacity:0;transform:translate(-50%,-135%) scale(.85);
+  transition:opacity .14s ease,transform .14s ease}
+#hoverCrest.on{opacity:1;transform:translate(-50%,-135%) scale(1)}
 
 /* persistent "someone is writing" banner */
 #writingBanner{position:fixed;top:max(14px,env(safe-area-inset-top));left:50%;
@@ -347,7 +357,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 
   <section class="screen" id="screen-intro">
     <span class="intro-badge">אצטדיון האהבה</span>
-    <h1 class="intro-h">מכתב אהבה לקבוצה שלך</h1>
+    <h1 class="intro-h">מכתב אהבה<br>לקבוצה שלך</h1>
     <p class="intro-p">התרגלת לבטא רגש על המגרש<br>עכשיו אפשר לבטא אותו גם מחוץ למגרש</p>
     <button class="intro-btn" id="enterBtn">כנס לאצטדיון</button>
   </section>
@@ -373,7 +383,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   <section class="screen" id="screen-write">
     <div class="write-h">כתוב לקבוצה שלך מכתב אהבה.<br>מה שתמיד רצית להגיד לה.</div>
     <div class="sugg-grid" id="suggestions"></div>
-    <div class="pad"><textarea id="letterInput" placeholder="כתוב כאן..." dir="rtl" rows="5"></textarea></div>
+    <div class="pad"><textarea id="letterInput" placeholder="תוכל גם לכתוב משהו בעצמך" dir="rtl" rows="5"></textarea></div>
     <button class="btn btn-p" id="sendLetter">המשך</button>
   </section>
 
@@ -426,6 +436,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   <span class="sb-num" id="sbNum1">0</span>
   <span class="sb-dot" id="sbDot1"></span>
 </div>
+<div id="hoverCrest" aria-hidden="true"></div>
 <div id="writingBanner"><span class="wb-pulse"></span><span id="writingBannerTxt"></span></div>
 <div id="toast"><span id="toastTxt"></span></div>
 
@@ -496,7 +507,7 @@ const DATA = [
     {"club":"הפועל ירושלים","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/5/5d/FC_Hapoel_Jerusalem_2021.png/120px-FC_Hapoel_Jerusalem_2021.png","p":"#00843D","s":"#003DA5"},
     {"club":"הפועל פתח תקווה","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/1/1f/Hapoelpt.svg/120px-Hapoelpt.svg.png","p":"#00843D","s":"#003DA5"},
     {"club":"הפועל תל אביב","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/a/ac/Hapoel_Tel_Aviv_F.C.png/120px-Hapoel_Tel_Aviv_F.C.png","p":"#C8102E","s":"#ffffff"},
-    {"club":"עירוני טבריה","crest":null,"p":"#00843D","s":"#003DA5"},
+    {"club":"עירוני טבריה","crest":"https://r2.thesportsdb.com/images/media/team/badge/78q5ez1656067666.png","p":"#00843D","s":"#003DA5"},
     {"club":"הפועל עירוני קריית שמונה","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/d/d1/Hapoel_Ironi_Kiryat_Shmona_badge.png/120px-Hapoel_Ironi_Kiryat_Shmona_badge.png","p":"#00843D","s":"#003DA5"},
     {"club":"מכבי בני ריינה","crest":"https://r2.thesportsdb.com/images/media/team/badge/b97dj21664188696.png","p":"#003DA5","s":"#00843D","seatColor":"#003DA5"},
     {"club":"מכבי חיפה","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/1/15/Maccabi_Haifa_FC_Logo_2023.png/120px-Maccabi_Haifa_FC_Logo_2023.png","p":"#00843D","s":"#ffffff"},
@@ -508,22 +519,22 @@ const DATA = [
     {"club":"Aston Villa","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Aston_Villa_FC_new_crest.svg/120px-Aston_Villa_FC_new_crest.svg.png","p":"#95BFE5","s":"#670E36"},
     {"club":"Bournemouth","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/e/e5/AFC_Bournemouth_%282013%29.svg/120px-AFC_Bournemouth_%282013%29.svg.png","p":"#C8102E","s":"#000000"},
     {"club":"Brentford","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/2/2a/Brentford_FC_crest.svg/120px-Brentford_FC_crest.svg.png","p":"#C8102E","s":"#ffffff"},
-    {"club":"Brighton & Hove Albion","crest":null,"p":"#0057B8","s":"#ffffff"},
-    {"club":"Chelsea","crest":null,"p":"#034694","s":"#ffffff"},
-    {"club":"Coventry City","crest":null,"p":"#59CBFF","s":"#ffffff"},
-    {"club":"Crystal Palace","crest":null,"p":"#1B458F","s":"#C4122E"},
-    {"club":"Everton","crest":null,"p":"#003399","s":"#ffffff"},
-    {"club":"Fulham","crest":null,"p":"#CC0000","s":"#ffffff"},
-    {"club":"Hull City","crest":null,"p":"#F5A12D","s":"#000000"},
-    {"club":"Ipswich Town","crest":null,"p":"#0044A8","s":"#ffffff"},
-    {"club":"Leeds United","crest":null,"p":"#FFCD00","s":"#1D428A"},
-    {"club":"Liverpool","crest":null,"p":"#C8102E","s":"#F6EB61"},
-    {"club":"Manchester City","crest":null,"p":"#6CABDD","s":"#ffffff"},
-    {"club":"Manchester United","crest":null,"p":"#DA291C","s":"#FBE122"},
-    {"club":"Newcastle United","crest":null,"p":"#241F20","s":"#ffffff"},
-    {"club":"Nottingham Forest","crest":null,"p":"#C8102E","s":"#ffffff"},
-    {"club":"Sunderland","crest":null,"p":"#C8102E","s":"#ffffff"},
-    {"club":"Tottenham Hotspur","crest":null,"p":"#132257","s":"#ffffff"}
+    {"club":"Brighton & Hove Albion","crest":"https://r2.thesportsdb.com/images/media/team/badge/ywypts1448810904.png","p":"#0057B8","s":"#ffffff"},
+    {"club":"Chelsea","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/c/cc/Chelsea_FC.svg/120px-Chelsea_FC.svg.png","p":"#034694","s":"#ffffff"},
+    {"club":"Coventry City","crest":"https://r2.thesportsdb.com/images/media/team/badge/uxyqys1424033798.png","p":"#59CBFF","s":"#ffffff"},
+    {"club":"Crystal Palace","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/a/a2/Crystal_Palace_FC_logo_%282022%29.svg/120px-Crystal_Palace_FC_logo_%282022%29.svg.png","p":"#1B458F","s":"#C4122E"},
+    {"club":"Everton","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/7/7c/Everton_FC_logo.svg/120px-Everton_FC_logo.svg.png","p":"#003399","s":"#ffffff"},
+    {"club":"Fulham","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/e/eb/Fulham_FC_%28shield%29.svg/120px-Fulham_FC_%28shield%29.svg.png","p":"#CC0000","s":"#ffffff"},
+    {"club":"Hull City","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/5/54/Hull_City_A.F.C._logo.svg/120px-Hull_City_A.F.C._logo.svg.png","p":"#F5A12D","s":"#000000"},
+    {"club":"Ipswich Town","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/4/43/Ipswich_Town.svg/120px-Ipswich_Town.svg.png","p":"#0044A8","s":"#ffffff"},
+    {"club":"Leeds United","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/5/54/Leeds_United_F.C._logo.svg/120px-Leeds_United_F.C._logo.svg.png","p":"#FFCD00","s":"#1D428A"},
+    {"club":"Liverpool","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/0/0c/Liverpool_FC.svg/120px-Liverpool_FC.svg.png","p":"#C8102E","s":"#F6EB61"},
+    {"club":"Manchester City","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/e/eb/Manchester_City_FC_badge.svg/120px-Manchester_City_FC_badge.svg.png","p":"#6CABDD","s":"#ffffff"},
+    {"club":"Manchester United","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/7/7a/Manchester_United_FC_crest.svg/120px-Manchester_United_FC_crest.svg.png","p":"#DA291C","s":"#FBE122"},
+    {"club":"Newcastle United","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/5/56/Newcastle_United_Logo.svg/120px-Newcastle_United_Logo.svg.png","p":"#241F20","s":"#ffffff"},
+    {"club":"Nottingham Forest","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/e/e5/Nottingham_Forest_F.C._logo.svg/120px-Nottingham_Forest_F.C._logo.svg.png","p":"#C8102E","s":"#ffffff"},
+    {"club":"Sunderland","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/7/77/Logo_Sunderland.svg/120px-Logo_Sunderland.svg.png","p":"#C8102E","s":"#ffffff"},
+    {"club":"Tottenham Hotspur","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/b/b4/Tottenham_Hotspur.svg/120px-Tottenham_Hotspur.svg.png","p":"#132257","s":"#ffffff"}
   ]},
   {"country":"ספרד","flag":"https://flagcdn.com/w40/es.png","iso":"es","clubs":[
     {"club":"Alavés","crest":"https://upload.wikimedia.org/wikipedia/en/thumb/f/f8/Deportivo_Alaves_logo_%282020%29.svg/120px-Deportivo_Alaves_logo_%282020%29.svg.png","p":"#1F5CA0","s":"#ffffff"},
@@ -704,12 +715,11 @@ const PEOPLE = [
 ];
 
 const PROMPTS = [
-  'אני אוהב אותך כי...','גם כשאת מאכזבת אותי, אני נשאר...',
-  'אבא לקח אותי אליך בפעם הראשונה...','כל שבת אני מרגיש שייך למשהו גדול ממני...',
-  'בלילות שאני לא מצליח לישון, אני חושב עליך...','את הדבר היחיד ש...',
-  'כשאני שומע את ההמנון שלך, אני...','גם כשכולם כבר ויתרו, את...',
-  'אני לא יודע להסביר למה, אבל...','לפעמים אני שונא אותך, ובכל זאת...',
-  'הזכרונות הכי יפים שלי קשורים אליך...','אם הייתי יכול לומר לך דבר אחד...'
+  'רציתי להגיד לך ש...',
+  'כשאני חושב עלייך אני...',
+  'לפעמים קשה לי להגיד את זה אבל...',
+  'אני לא יודע להסביר את זה, אבל...',
+  'אני אוהב אותך כי...'
 ];
 
 /* state */
@@ -913,7 +923,7 @@ const Stadium = (function(){
   }
 
   function assign(){
-    seats.forEach(s=>{s.li=-1;s.p=null;s.born=0;s._blink=false;});
+    seats.forEach(s=>{s.li=-1;s.p=null;s.born=0;s._blink=false;s._glow=false;});
     for(let i=seats.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[seats[i],seats[j]]=[seats[j],seats[i]];}
     const map={};
     S.letters.forEach((l,i)=>{(map[l.clubId]=map[l.clubId]||[]).push(i);});
@@ -1019,6 +1029,8 @@ const Stadium = (function(){
         ct.style.fontSize=cfs+'px';
         ct.textContent=c;
       }
+      inner.style.cursor='pointer';
+      block.onclick=()=>{ $('#legendModal').classList.remove('on'); highlightClubSeats(item.id); };
       inner.append(nm,ct); block.append(inner); grid.appendChild(block);
     });
   }
@@ -1151,6 +1163,26 @@ const Stadium = (function(){
     zoomToSeat(seats.find(s=>s.li===letterIdx));
   }
 
+  /* fit the camera to all seats of a club, then flicker them with a glow */
+  function highlightClubSeats(clubId){
+    const ss=seats.filter(s=>s.li>=0&&S.letters[s.li]&&S.letters[s.li].clubId===clubId);
+    if(!ss.length) return;
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    ss.forEach(s=>{minX=Math.min(minX,s.x);maxX=Math.max(maxX,s.x);minY=Math.min(minY,s.y);maxY=Math.max(maxY,s.y);});
+    const mx=(minX+maxX)/2, my=(minY+maxY)/2, pad=180;
+    const ts=Math.max(1,Math.min(4,Math.min(W/((maxX-minX)+pad),H/((maxY-minY)+pad))));
+    const tx=W/2-mx*ts, ty=H/2-my*ts;
+    tweenCam({scale:ts,ox:tx,oy:ty},700,()=>{
+      let n=0;
+      const flick=()=>{
+        if(n++>=8){ss.forEach(s=>s._glow=false);tweenCam({scale:1,ox:0,oy:0},600);return;}
+        const on=n%2===1; ss.forEach(s=>s._glow=on);
+        setTimeout(flick,200);
+      };
+      flick();
+    });
+  }
+
   function frame(now){
     animFrame=requestAnimationFrame(frame);
     ctx.clearRect(0,0,W,H);
@@ -1173,7 +1205,8 @@ const Stadium = (function(){
       ctx.translate(s.x,s.y);
       if(scale<1) ctx.scale(scale,scale);
       if(hover){ctx.shadowColor=s.p;ctx.shadowBlur=12;}
-      ctx.fillStyle=occupied?(s._blink?'#ffffff':s.p):'#2d2d3a';
+      if(s._glow){ctx.shadowColor=s.p;ctx.shadowBlur=26;}
+      ctx.fillStyle=occupied?((s._blink||s._glow)?'#ffffff':s.p):'#2d2d3a';
       rr(ctx,-ssw/2,-ssh/2,ssw,ssh,1.5); ctx.fill();
       ctx.restore();
     });
@@ -1229,9 +1262,28 @@ const Stadium = (function(){
     if(ov) ov.style.cursor=cur;
   }
 
+  const hoverCrestEl=$('#hoverCrest');
+  function hideHoverCrest(){ if(hoverCrestEl) hoverCrestEl.classList.remove('on'); }
+  function updateHoverCrest(cx,cy){
+    if(!hoverCrestEl) return;
+    if(hoverIdx>=0 && isDesktop()){
+      const s=seats[hoverIdx];
+      const club=(s&&s.li>=0&&S.letters[s.li])?CLUBS[S.letters[s.li].clubId]:null;
+      if(club){
+        crestEl(hoverCrestEl,club);
+        hoverCrestEl.style.left=cx+'px';
+        hoverCrestEl.style.top=cy+'px';
+        hoverCrestEl.classList.add('on');
+        return;
+      }
+    }
+    hideHoverCrest();
+  }
+
   function onMove(cx,cy){
     hoverIdx=pickSeat(cx,cy,24);
     setCursor(hoverIdx);
+    updateHoverCrest(cx,cy);
   }
 
   /* ~36px tap padding (≈72px target) so every visible seat is tappable */
@@ -1242,6 +1294,7 @@ const Stadium = (function(){
   }
 
   canvas.addEventListener('mousemove',e=>{onMove(e.clientX,e.clientY);});
+  canvas.addEventListener('mouseleave',hideHoverCrest);
   canvas.addEventListener('click',e=>{onClick(e.clientX,e.clientY);});
   canvas.addEventListener('touchend',e=>{
     e.preventDefault();
@@ -1252,6 +1305,7 @@ const Stadium = (function(){
   const seatOverlay=$('#seatOverlay');
   if(seatOverlay){
     seatOverlay.addEventListener('mousemove',e=>{onMove(e.clientX,e.clientY);});
+    seatOverlay.addEventListener('mouseleave',hideHoverCrest);
     seatOverlay.addEventListener('click',e=>{onClick(e.clientX,e.clientY);});
     seatOverlay.addEventListener('touchend',e=>{
       e.preventDefault();
@@ -2245,11 +2299,11 @@ function chooseClub(c){
 function shuffle(a){const b=a.slice();for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
 function renderSuggestions(){
   const box=$('#suggestions'); box.innerHTML='';
-  shuffle(PROMPTS).slice(0,6).forEach(txt=>{
+  PROMPTS.forEach(txt=>{
     const btn=document.createElement('button'); btn.className='schip'; btn.textContent=txt;
     btn.onclick=()=>{
       const ta=$('#letterInput');
-      ta.value=ta.value.trim()?ta.value.trim()+' '+txt:txt;
+      ta.value=txt;                                       /* selecting a suggestion replaces the box (not append) */
       box.querySelectorAll('.schip').forEach(c=>c.classList.remove('on'));
       btn.classList.add('on'); ta.focus();
     };
@@ -2424,6 +2478,7 @@ function isDesktop(){ return window.matchMedia('(min-width:1024px) and (pointer:
 /* ── goal sound effect (plays only when a letter is submitted) ── */
 const goalSound = new Audio('goal.mp3');
 goalSound.preload='auto';
+goalSound.volume=0.5;          /* reduced 50% from default */
 let audioPrimed=false;
 let skipSoundForLetterId=null;          /* suppress duplicate when our own insert echoes back */
 function primeAudio(){
@@ -2501,6 +2556,7 @@ $('#enterBtn').onclick=()=>{
 
 /* ── legend modal ── */
 $('#legendBtn').onclick=()=>{ if(typeof Stadium!=='undefined'&&Stadium.refreshLegend) Stadium.refreshLegend(); $('#legendModal').classList.add('on'); };
+$('#scoreboard').onclick=()=>{ if(typeof Stadium!=='undefined'&&Stadium.refreshLegend) Stadium.refreshLegend(); $('#legendModal').classList.add('on'); };
 $('#legendClose').onclick=()=>$('#legendModal').classList.remove('on');
 $('#legendModal').onclick=e=>{if(e.target.id==='legendModal')$('#legendModal').classList.remove('on');};
 
