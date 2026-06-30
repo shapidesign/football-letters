@@ -1410,6 +1410,9 @@ const FootballSim = (function(){
      if it lapses the ball is force-kicked (held) or force-collected (loose) */
   let kickDeadline=0;
   function armKick(now){ kickDeadline=now+3000+Math.random()*2000; }
+  /* after a turnover the loser is locked out of regaining the ball briefly, so
+     two opponents can't ping-pong it between them in one spot */
+  let lastLoserIdx=-1, loserLockUntil=0;
 
   /* physics handles */
   let engine=null, world=null, ballBody=null;
@@ -1790,7 +1793,7 @@ const FootballSim = (function(){
 
     /* tackle (with a turnover cooldown so the ball can't ping-pong) */
     if(now-lastTurnover>700 && now>holder.passAt-1800){
-      const opp=players.find(p=>p.team!==attTeam&&p.role!=='GK'&&Math.hypot(p.x-holder.x,p.y-holder.y)<playerR*2.7+ballR);
+      const opp=players.find((p,pi)=>p.team!==attTeam&&p.role!=='GK'&&!(pi===lastLoserIdx&&now<loserLockUntil)&&Math.hypot(p.x-holder.x,p.y-holder.y)<playerR*2.7+ballR);
       if(opp){
         const oi=players.indexOf(opp); capture(oi,now);
         opp.dribbleAt=now+500; opp.shotAt=now+2000+Math.random()*2000;
@@ -1999,8 +2002,12 @@ const FootballSim = (function(){
     armKick(now);
   }
   function capture(i,now){
+    const prevHolder=ball.holderIdx;
     players.forEach(p=>p.hasBall=false);
     const p=players[i]; p.hasBall=true;
+    if(prevHolder>=0&&players[prevHolder]&&players[prevHolder].team!==p.team){
+      lastLoserIdx=prevHolder; loserLockUntil=now+1400;  /* ponytail: breaks tackle-back ping-pong; widen window if it still oscillates */
+    }
     const continued=p.team===lastAttTeam;
     ball.holderIdx=i; ball.inFlight=false; ball.mode='pass'; ball.targetIdx=-1;
     ball._standRx=ball._standRy=null;
@@ -2062,6 +2069,7 @@ const FootballSim = (function(){
     const baseR=playerR+ballR+unit*0.012;
     for(let i=0;i<players.length;i++){
       if(now<ball.kickCdUntil && i===ball.lastKickerIdx) continue;
+      if(now<loserLockUntil && i===lastLoserIdx) continue;
       const p=players[i]; if(!p.body) continue;
       const reach=baseR+(p.role==='GK'?unit*0.035:0);
       const d=Math.hypot(p.body.position.x-bx, p.body.position.y-by);
