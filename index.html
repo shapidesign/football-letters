@@ -2112,21 +2112,38 @@ const FootballSim = (function(){
     if(ball.holderIdx>=0) forceCarrierKick(now);
     else forceLooseCapture(now);
   }
-  /* position-based stall watch: the event watchdog above re-arms on every
-     capture, so a ball trading hands between two players in one spot never
-     trips it. This one watches the ball's *position* — if it hasn't left a
-     small radius for ~1.1s (held or loose), force it moving. Symptom-based,
-     so no ping-pong can suppress it. */
+  /* region-based stall watch: the event watchdog above re-arms on every
+     capture, and a tiny-radius position check is fooled by the ball hopping
+     between two players' glue-points. So we anchor a contested *zone* (radius
+     ~unit*0.13): while the ball stays inside it, a timer runs; any real
+     dribble/pass leaves the zone and resets it. Trapped >2.4s → escape kick. */
   let stallX=null, stallY=null, stallSince=0;
   function ballStallWatch(now){
     if(!ballBody) return;
-    if(stallX==null || Math.hypot(ball.x-stallX,ball.y-stallY)>unit*0.05){
+    if(stallX==null || Math.hypot(ball.x-stallX,ball.y-stallY)>unit*0.13){
       stallX=ball.x; stallY=ball.y; stallSince=now; return;
     }
-    if(now-stallSince<1100) return;
-    if(ball.holderIdx>=0) forceCarrierKick(now);   /* pass/hoof it out of the standoff */
-    else { loserLockUntil=0; forceLooseCapture(now); }  /* drop the lock so someone grabs it */
+    if(now-stallSince<2400) return;        /* well under the 3s ceiling, allowing kick travel */
+    escapeKick(now);
     stallX=ball.x; stallY=ball.y; stallSince=now;
+  }
+  /* boot the ball out of a deadlock toward goal, with a random spread so it
+     leaves in a different direction each time and can't re-trap in the zone */
+  function escapeKick(now){
+    const kicker=ball.holderIdx;
+    const team=kicker>=0?players[kicker].team:lastAttTeam;
+    const g=goalPos(team);
+    let dx=g.x-ball.x, dy=g.y-ball.y; const dl=Math.hypot(dx,dy)||1; dx/=dl; dy/=dl;
+    const a=(Math.random()-0.5)*1.7, c=Math.cos(a), s=Math.sin(a);   /* ±0.85 rad */
+    const ex=dx*c-dy*s, ey=dx*s+dy*c, v0=unit*1.5;
+    M.Body.setVelocity(ballBody,{x:ex*v0*FIXED, y:ey*v0*FIXED});
+    players.forEach(p=>p.hasBall=false);
+    ball.holderIdx=-1; ball.inFlight=true; ball.mode='pass'; ball.targetIdx=-1;
+    ball.lastKickerIdx=kicker; ball.kickCdUntil=now+450; ball._standRx=ball._standRy=null;
+    if(kicker>=0){ players[kicker].spinUntil=now+380; players[kicker].spinDir=Math.random()<0.5?-1:1; }
+    loserLockUntil=0;                       /* let anyone chase the loose ball */
+    match.phase='pass'; match.phaseUntil=now+800;
+    armKick(now);
   }
   /* held too long → pass to the most advanced open team-mate, else clear */
   function forceCarrierKick(now){
@@ -2235,15 +2252,18 @@ const FootballSim = (function(){
     /* players */
     players.forEach((p,i)=>{
       const x=(p.rx||p.x)-ox, y=(p.ry||p.y)-oy;
-      const vx=p.body.velocity.x, vy=p.body.velocity.y, vl=Math.hypot(vx,vy);
       const kit=p.role==='GK'?hexNum(p.team===0?gk0:gk1):hexNum(p.team===0?teamColor0:teamColor1);
+      /* spin-kick flourish: rotate the body for a beat after an escape kick */
+      const spin=(p.spinUntil&&t<p.spinUntil)?((p.spinUntil-t)/380)*Math.PI*4*(p.spinDir||1):0;
+      gfx.save(); gfx.translateCanvas(x,y); if(spin) gfx.rotateCanvas(spin);
       gfx.fillStyle(kit,1);
-      gfx.fillEllipse(x,y, playerR*1.8, playerR*2.15);                              /* jersey */
+      gfx.fillEllipse(0,0, playerR*1.8, playerR*2.15);                              /* jersey */
       gfx.lineStyle(Math.max(1,playerR*0.16), darkenNum(kit,0.55),1);
-      gfx.strokeEllipse(x,y, playerR*1.8, playerR*2.15);
-      gfx.fillStyle(0xf2c9a0,1); gfx.fillCircle(x, y-playerR*0.55, playerR*0.5);    /* head */
+      gfx.strokeEllipse(0,0, playerR*1.8, playerR*2.15);
+      gfx.fillStyle(0xf2c9a0,1); gfx.fillCircle(0, -playerR*0.55, playerR*0.5);     /* head */
       gfx.lineStyle(Math.max(0.8,playerR*0.10), 0x8a5a3a,0.6);
-      gfx.strokeCircle(x, y-playerR*0.55, playerR*0.5);
+      gfx.strokeCircle(0, -playerR*0.55, playerR*0.5);
+      gfx.restore();
     });
 
     /* ball trail */
