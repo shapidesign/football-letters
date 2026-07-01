@@ -1342,7 +1342,7 @@ const FootballSim = (function(){
   let lastNow=0, kickoffTeam=0, lastTurnover=0, lastAttTeam=0, acc=0;
   let match={phase:'kickoff', phaseUntil:0, passCount:0};
   let score=[0,0];                        /* live match score [team0, team1] */
-  const GOAL_MIN_MS=5*60*1000, GOAL_MAX_MS=10*60*1000;
+  const GOAL_MIN_MS=3*60*1000, GOAL_MAX_MS=5*60*1000;
   let lastGoalAt=0, nextGoalDueAt=0, nextForceGoalAt=0;
   function scheduleNextGoal(now){
     lastGoalAt=now||performance.now();
@@ -1406,13 +1406,13 @@ const FootballSim = (function(){
   let ball={x:0,y:0,holderIdx:-1,inFlight:false,mode:'pass',shooterTeam:0,
             targetIdx:-1,kickCdUntil:0,lastKickerIdx:-1};
 
-  /* anti-stuck watchdog: every kick/possession event re-arms a 3–5s deadline;
-     if it lapses the ball is force-kicked (held) or force-collected (loose) */
-  let kickDeadline=0;
-  function armKick(now){ kickDeadline=now+3000+Math.random()*2000; }
-  /* after a turnover the loser is locked out of regaining the ball briefly, so
-     two opponents can't ping-pong it between them in one spot */
-  let lastLoserIdx=-1, loserLockUntil=0;
+  /* ── possession model tuning (feel knobs; logic below never hard-codes these) ── */
+  const SETTLE_MS=250;              /* after gaining the ball, wait this before pass/shot */
+  const TACKLE_CD_MS=450;           /* min gap between a defender's tackle attempts */
+  const TACKLE_WIN=0.5;             /* base chance a challenge wins the ball */
+  const RECOVER_MS=1200;            /* beaten carrier retreats, can't challenge, this long */
+  const BEATEN_MS=900;              /* defender who missed a tackle backs off this long */
+  const BACKSTOP_MS=2200;           /* ball parked in one zone this long → force clear (stays well under a 3s ceiling incl. kick travel) */
 
   /* physics handles */
   let engine=null, world=null, ballBody=null;
@@ -1702,24 +1702,27 @@ const FootballSim = (function(){
     else           { p.ty=Math.max(py+ph*0.34,Math.min(py+ph*0.66, ball.y)); p.tx=base.x; }
   }
 
-  /* ── high-level tactical AI: decide targets + pass/shot/tackle events ── */
+  /* ── possession AI: role dispatch. Invariant — someone is always MOVING with
+     the ball. The carrier never idles; a challenge always resolves into motion
+     (winner drives on, loser drops off) instead of a frozen adjacency. ── */
   function runAI(now){
     if(!nextGoalDueAt) scheduleNextGoal(now);
     const urgency=goalUrgency(now);
-    if(now>=nextGoalDueAt+4000 && !(ball.inFlight&&ball.mode==='shot')){
+    if(now>=nextGoalDueAt && !(ball.inFlight&&ball.mode==='shot')){   /* guarantee a goal by the due time */
       if(!nextForceGoalAt||now>=nextForceGoalAt){
         forceGoalAttempt(now);
         nextForceGoalAt=now+(reduceMotion?18000:10000);
       }
     }
 
-    const SPD={gk:unit*0.15, defHold:unit*0.12, midOff:unit*0.18, attRun:unit*(0.235+urgency*0.04),
-               carrier:unit*(0.215+urgency*0.05), press:unit*0.17, chase:unit*0.22};
+    const SPD={gk:unit*0.15, defHold:unit*0.13, midOff:unit*0.18, attRun:unit*(0.235+urgency*0.04),
+               carrier:unit*(0.215+urgency*0.05), press:unit*0.205, chase:unit*0.235};
 
-    /* ── loose ball: chasers seek it, the rest hold shape ── */
+    /* ── LOOSE ball: nearest live player of each team sprints in; rest hold shape ── */
     if(ball.holderIdx<0){
       const near=[-1,-1], nd=[Infinity,Infinity];
-      players.forEach((p,i)=>{ if(p.role==='GK')return; const d=Math.hypot(p.x-ball.x,p.y-ball.y); if(d<nd[p.team]){nd[p.team]=d;near[p.team]=i;} });
+      players.forEach((p,i)=>{ if(p.role==='GK'||now<p.recoverUntil)return;
+        const d=Math.hypot(p.x-ball.x,p.y-ball.y); if(d<nd[p.team]){nd[p.team]=d;near[p.team]=i;} });
       players.forEach((p,i)=>{
         if(p.role==='GK'){ setGK(p); p.spd=SPD.gk; }
         else if(i===near[0]||i===near[1]){ p.tx=ball.x; p.ty=ball.y; p.spd=SPD.chase; }
@@ -1728,83 +1731,76 @@ const FootballSim = (function(){
       return;
     }
 
+    /* ── HELD ball ── */
     const holder=players[ball.holderIdx]; if(!holder) return;
     const attTeam=holder.team; lastAttTeam=attTeam;
-    const{idx:pressIdx,dist:pressDist}=nearestOpp(attTeam,holder.x,holder.y,true);
-    const underPressure=pressDist<unit*.12;
     const goal=goalPos(attTeam);
     const distGoal=Math.hypot(goal.x-holder.x,goal.y-holder.y);
     const progress=progressAlong(attTeam,holder.x,holder.y);
+    const kickoff=match.phase==='kickoff'&&now<match.phaseUntil;
+    if(!kickoff&&match.phase==='kickoff') match.phase='dribble';
+    const bursting=holder.burstUntil&&now<holder.burstUntil;
 
-    if(match.phase==='kickoff' && now<match.phaseUntil){
-      const pt=aheadPoint(attTeam,holder.x,holder.y,unit*.11,0);
-      holder.tx=pt.x; holder.ty=pt.y; holder.spd=SPD.carrier*.7;
-      players.forEach((p,i)=>{
-        const isAtt=p.team===attTeam;
-        if(i===ball.holderIdx) return;
-        if(p.role==='GK'){ setGK(p); p.spd=SPD.gk; }
-        else { setOffBall(p, attTeam, now); p.spd=isAtt?SPD.midOff:SPD.defHold; }
-      });
-      return;
-    }
-    if(match.phase==='kickoff') match.phase='dribble';
-
-    if(urgency>0.55 && holder.role!=='GK'){
-      holder.shotAt=Math.min(holder.shotAt||now, now+(urgency>0.85?80:450));
-      if(progress>0.46) holder.passAt=Math.min(holder.passAt||now, now+700);
-    }
-
-    /* push toward goal — thresholds ease as a goal window nears */
-    const shotProg=holder.role==='FWD'?0.48:0.54+urgency*0.1;
-    const shotDist=unit*(0.68+urgency*0.22);
-    const readyShot=now>=(holder.shotAt||0)-(urgency>0.8?900:0);
-    if(holder.role!=='GK' && progress>shotProg && distGoal<shotDist && readyShot){
-      shoot(holder,attTeam,now,urgency>0.65); return;
-    }
-    if(urgency>=1 && holder.role!=='GK' && progress>0.40 && distGoal<unit*0.95){
-      shoot(holder,attTeam,now,true); return;
-    }
-
-    /* measured dribble toward goal */
-    if(now>=holder.dribbleAt){
-      const laneNudge=((FORM[holder.ri][1]||.5)-.5)*unit*.05;
-      const fwd=unit*(underPressure?(0.13+urgency*0.05):(0.21+urgency*0.11));
-      const pt=aheadPoint(attTeam,holder.x,holder.y,fwd,laneNudge);
-      holder.tx=pt.x; holder.ty=pt.y;
-      holder.dribbleAt=now+(reduceMotion?1000:560)+Math.random()*360;
-    }
-
-    /* targets for everyone */
+    /* nearest defender free to challenge (skip GK, beaten and recovering ones) */
+    let chIdx=-1, chDist=Infinity;
     players.forEach((p,i)=>{
-      const isAtt=p.team===attTeam;
-      if(i===ball.holderIdx){ p.spd=SPD.carrier; if(p.tx==null){p.tx=p.x;p.ty=p.y;} }
-      else if(!isAtt && i===pressIdx && p.role!=='GK'){
-        /* press to tackling distance, not onto the carrier — otherwise the two
-           bodies weld together on top of the ball. The tackle check below still
-           fires once we're inside its (slightly larger) reach. */
-        let dxp=p.x-holder.x, dyp=p.y-holder.y, dl=Math.hypot(dxp,dyp);
-        if(dl<1e-3){ const a=Math.random()*6.283; dxp=Math.cos(a); dyp=Math.sin(a); dl=1; }
-        const stand=playerR*2.2+ballR;
-        p.tx=holder.x+(dxp/dl)*stand; p.ty=holder.y+(dyp/dl)*stand; p.spd=SPD.press;
+      if(p.team===attTeam||p.role==='GK'||now<p.beatenUntil||now<p.recoverUntil) return;
+      const d=Math.hypot(p.x-holder.x,p.y-holder.y);
+      if(d<chDist){ chDist=d; chIdx=i; }
+    });
+    const underPressure=chDist<unit*.16;
+
+    /* carrier ALWAYS moves: a stride ahead toward goal, steered around the
+       challenger so it dribbles around pressure rather than into it. */
+    {
+      const stride=unit*(kickoff?0.16:underPressure?0.19:0.26)+(bursting?unit*0.10:0);
+      let laneNudge=((FORM[holder.ri][1]||.5)-.5)*unit*.05;
+      if(chIdx>=0 && underPressure){
+        const{lx,ly}=attackAxes(attTeam);
+        const side=((holder.x-players[chIdx].x)*lx+(holder.y-players[chIdx].y)*ly)>=0?1:-1;
+        laneNudge+=side*unit*0.16;   /* cut to the flank the defender leaves open */
       }
-      else if(p.role==='GK'){ setGK(p); p.spd=SPD.gk; }
-      else { setOffBall(p, attTeam, now); p.spd=isAtt?attackingSpeed(p,SPD):SPD.defHold; }
+      const pt=aheadPoint(attTeam,holder.x,holder.y,stride,laneNudge);
+      holder.tx=pt.x; holder.ty=pt.y;
+      holder.spd=SPD.carrier*(bursting?1.18:1)*(kickoff?0.85:1);
+    }
+
+    /* everyone else's target */
+    players.forEach((p,i)=>{
+      if(i===ball.holderIdx) return;
+      const isAtt=p.team===attTeam;
+      if(p.role==='GK'){ setGK(p); p.spd=SPD.gk; return; }
+      if(i===chIdx && !kickoff){ p.tx=holder.x; p.ty=holder.y; p.spd=SPD.press; return; }  /* close in to contest */
+      if(now<p.beatenUntil){ const b=aheadPoint(attTeam,holder.x,holder.y,-unit*0.14,0); p.tx=b.x; p.ty=b.y; p.spd=SPD.defHold; return; }
+      setOffBall(p, attTeam, now); p.spd=isAtt?attackingSpeed(p,SPD):SPD.defHold;
     });
 
-    /* tackle (with a turnover cooldown so the ball can't ping-pong) */
-    if(now-lastTurnover>700 && now>holder.passAt-1800){
-      const opp=players.find((p,pi)=>p.team!==attTeam&&p.role!=='GK'&&!(pi===lastLoserIdx&&now<loserLockUntil)&&Math.hypot(p.x-holder.x,p.y-holder.y)<playerR*2.7+ballR);
-      if(opp){
-        const oi=players.indexOf(opp); capture(oi,now);
-        opp.dribbleAt=now+500; opp.shotAt=now+2000+Math.random()*2000;
-        const{dist:dn2}=nearestOpp(opp.team,opp.x,opp.y,true);
-        opp.passAt=now+(dn2<unit*.2?1300+Math.random()*900:2200+Math.random()*1600);
-        return;
+    if(kickoff) return;   /* kickoff beat: positions only, no duel/pass/shot yet */
+
+    /* ── tackle duel: challenger in reach + off cooldown rolls for the ball ── */
+    if(chIdx>=0 && chDist<playerR*2.5+ballR && now>=(players[chIdx].nextTackleAt||0) && now-lastTurnover>250){
+      const ch=players[chIdx];
+      ch.nextTackleAt=now+TACKLE_CD_MS;
+      const carrierSpeed=holder.body?Math.hypot(holder.body.velocity.x,holder.body.velocity.y):0;
+      const winP=TACKLE_WIN+(carrierSpeed<STAND_VEL*3?0.2:0)-(bursting?0.2:0);
+      if(Math.random()<winP){ capture(chIdx,now); return; }   /* flip; capture drops the loser off */
+      ch.beatenUntil=now+BEATEN_MS;    /* missed → defender backs off */
+      holder.burstUntil=now+700;       /* carrier bursts past */
+      return;
+    }
+
+    /* ── shot: in the attacking third, within range; chance ramps with urgency ── */
+    if(now>=holder.settleUntil && holder.role!=='GK'){
+      if(urgency>=1 && progress>0.42 && distGoal<unit*0.95){ shoot(holder,attTeam,now,true); return; }
+      const shotProg=holder.role==='FWD'?0.50:0.56+urgency*0.08;
+      const shotDist=unit*(0.62+urgency*0.26);
+      if(progress>shotProg && distGoal<shotDist && Math.random()<Math.max(0,urgency-0.2)*0.06){
+        shoot(holder,attTeam,now,urgency>0.6); return;
       }
     }
 
-    /* progressive pass into a teammate's run */
-    {
+    /* ── pass: once settled, take a meaningfully better outlet (or clear if held too long) ── */
+    if(now>=holder.settleUntil){
       const al=distGoal||1; const ax=(goal.x-holder.x)/al, ay=(goal.y-holder.y)/al;
       const cands=players.map((p,i)=>({p,i}))
         .filter(({p,i})=>p.team===attTeam&&i!==ball.holderIdx&&p.role!=='GK')
@@ -1822,10 +1818,9 @@ const FootballSim = (function(){
         })
         .sort((a,b)=>b.score-a.score);
       const best=cands[0];
-      const timeUp=now>=holder.passAt;
-      const incisive=best&&best.score>unit*(underPressure?(0.11-urgency*0.03):(0.18-urgency*0.06));
-      const pushAttack=urgency>0.5&&best&&progressAlong(attTeam,(players[best.i].tx||players[best.i].x),(players[best.i].ty||players[best.i].y))>progress+.05;
-      if(best&&(timeUp||incisive||pushAttack)){
+      const heldLong=now-(holder.gotBallAt||now)>1600;   /* don't dribble in circles forever */
+      const incisive=best&&best.score>unit*(underPressure?(0.10-urgency*0.03):(0.20-urgency*0.06));
+      if(best&&(incisive||(underPressure&&best.score>0)||heldLong)){
         const pick=cands.length>1&&Math.random()<.16?cands[1]:cands[0];
         passTo(holder, players[pick.i], pick.i, now);
       }
@@ -1926,7 +1921,10 @@ const FootballSim = (function(){
       const p=players[i], b=p.body; if(!b) continue;
       let dx=p.tx-b.position.x, dy=p.ty-b.position.y;
       const d=Math.hypot(dx,dy);
-      if(d<stop || isIdle(b,p.tx,p.ty)){
+      if(d<1e-3){ M.Body.setVelocity(b,{x:0,y:0}); continue; }   /* target reached → avoid NaN */
+      /* the ball carrier is never frozen — it always keeps rolling toward its
+         (always-ahead) target, so the ball can't park between two players */
+      if(i!==ball.holderIdx && (d<stop || isIdle(b,p.tx,p.ty))){
         M.Body.setVelocity(b,{x:0,y:0});
         continue;
       }
@@ -1982,7 +1980,6 @@ const FootballSim = (function(){
     ball.targetIdx=idx; ball.lastKickerIdx=prev; ball.kickCdUntil=now+260;
     ball._standRx=ball._standRy=null;
     match.phase='pass'; match.phaseUntil=now+900; match.passCount++;
-    armKick(now);
   }
   function shoot(shooter,team,now,accurate){
     const goal=goalPos(team);
@@ -1999,31 +1996,26 @@ const FootballSim = (function(){
     ball.targetIdx=-1; ball.lastKickerIdx=prev; ball.kickCdUntil=now+260;
     ball._standRx=ball._standRy=null;
     match.phase='shot'; match.phaseUntil=now+1600;
-    armKick(now);
   }
   function capture(i,now){
     const prevHolder=ball.holderIdx;
     players.forEach(p=>p.hasBall=false);
     const p=players[i]; p.hasBall=true;
+    /* turnover: the beaten carrier drops off and can't challenge for a beat,
+       so it can't immediately tackle the ball back (no ping-pong) */
     if(prevHolder>=0&&players[prevHolder]&&players[prevHolder].team!==p.team){
-      lastLoserIdx=prevHolder; loserLockUntil=now+1400;  /* ponytail: breaks tackle-back ping-pong; widen window if it still oscillates */
+      players[prevHolder].recoverUntil=now+RECOVER_MS;
     }
     const continued=p.team===lastAttTeam;
     ball.holderIdx=i; ball.inFlight=false; ball.mode='pass'; ball.targetIdx=-1;
     ball._standRx=ball._standRy=null;
     if(ballBody) M.Body.setVelocity(ballBody,{x:0,y:0});
-    const{dist:dn}=nearestOpp(p.team,p.x,p.y,true); const pressure=dn<unit*.2;
-    const prog=progressAlong(p.team,p.x,p.y);
     if(!continued) match.passCount=0;
     match.phase='dribble'; match.phaseUntil=now+1200;
-    if(p.role==='GK'){ p.dribbleAt=now+700; p.shotAt=now+9e9; p.passAt=now+850+Math.random()*700; match.passCount=0; }
-    else {
-      p.dribbleAt=now+320;
-      p.shotAt=now+(prog>.58?(700+Math.random()*800):(2000+Math.random()*2200));
-      p.passAt=now+(pressure?850+Math.random()*550:1300+Math.random()*900);
-    }
+    p.gotBallAt=now;
+    p.settleUntil=now+(p.role==='GK'?600:SETTLE_MS);
+    p.burstUntil=0; p.beatenUntil=0; p.recoverUntil=0;
     lastTurnover=now;
-    armKick(now);
   }
 
   /* team `conceding` let one in → the other team scored */
@@ -2069,7 +2061,7 @@ const FootballSim = (function(){
     const baseR=playerR+ballR+unit*0.012;
     for(let i=0;i<players.length;i++){
       if(now<ball.kickCdUntil && i===ball.lastKickerIdx) continue;
-      if(now<loserLockUntil && i===lastLoserIdx) continue;
+      if(now<players[i].recoverUntil) continue;   /* a just-beaten player can't instantly reclaim */
       const p=players[i]; if(!p.body) continue;
       const reach=baseR+(p.role==='GK'?unit*0.035:0);
       const d=Math.hypot(p.body.position.x-bx, p.body.position.y-by);
@@ -2087,7 +2079,8 @@ const FootballSim = (function(){
       if(p.body){ M.Body.setPosition(p.body,{x:base.x,y:base.y}); M.Body.setVelocity(p.body,{x:0,y:0}); }
       p.x=base.x; p.y=base.y; p.rx=base.x; p.ry=base.y; p.tx=base.x; p.ty=base.y;
       p._standRx=p._standRy=null;
-      p.hasBall=false; p.wanderAt=now+Math.random()*2500; p.shotAt=now+9e9;
+      p.hasBall=false; p.wanderAt=now+Math.random()*2500;
+      p.recoverUntil=0; p.beatenUntil=0; p.burstUntil=0; p.nextTackleAt=0;   /* clear duel state */
     });
     const cx=pr.px+pr.pw/2, cy=pr.py+pr.ph/2;
     const idx=players.findIndex(p=>p.team===team&&p.ri===10);
@@ -2095,60 +2088,34 @@ const FootballSim = (function(){
     if(fwd){
       if(fwd.body){ M.Body.setPosition(fwd.body,{x:cx,y:cy}); M.Body.setVelocity(fwd.body,{x:0,y:0}); }
       fwd.x=cx; fwd.y=cy; fwd.rx=cx; fwd.ry=cy; fwd.tx=cx; fwd.ty=cy; fwd.hasBall=true;
-      fwd.dribbleAt=now+500; fwd.passAt=now+1200+Math.random()*700; fwd.shotAt=now+3500+Math.random()*2500;
+      fwd.gotBallAt=now; fwd.settleUntil=now+SETTLE_MS;   /* drives forward at once; no idle start */
     }
     if(ballBody){ M.Body.setPosition(ballBody,{x:cx,y:cy}); M.Body.setVelocity(ballBody,{x:0,y:0}); }
     ball.x=cx; ball.y=cy; ball.rx=cx; ball.ry=cy; ball._standRx=ball._standRy=null; ball.holderIdx=idx; ball.inFlight=false; ball.mode='pass';
     ball.targetIdx=-1; ball.shooterTeam=team; ball.kickCdUntil=now; ball.lastKickerIdx=-1;
     trailPts.length=0; trailAt=0;
-    armKick(now);
   }
 
-  /* ── anti-stuck watchdog ── */
-  function ballWatchdog(now){
-    if(!ballBody) return;
-    if(!kickDeadline){ armKick(now); return; }
-    if(now<kickDeadline) return;
-    if(ball.holderIdx>=0) forceCarrierKick(now);
-    else forceLooseCapture(now);
-  }
-  /* region-based stall watch: the event watchdog above re-arms on every
-     capture, and a tiny-radius position check is fooled by the ball hopping
-     between two players' glue-points. So we anchor a contested *zone* (radius
-     ~unit*0.13): while the ball stays inside it, a timer runs; any real
-     dribble/pass leaves the zone and resets it. Trapped >2.4s → escape kick. */
+  /* ── single safety backstop ──
+     The possession model keeps the ball moving, so this should rarely fire. It
+     only triggers if the ball somehow parks inside a ~unit*0.12 zone for
+     BACKSTOP_MS (3s) — the anchor resets whenever the ball genuinely leaves the
+     zone, so ordinary dribbling/passing never trips it. Then it force-clears. */
   let stallX=null, stallY=null, stallSince=0;
-  function ballStallWatch(now){
+  function ballBackstop(now){
     if(!ballBody) return;
-    if(stallX==null || Math.hypot(ball.x-stallX,ball.y-stallY)>unit*0.13){
+    if(stallX==null || Math.hypot(ball.x-stallX,ball.y-stallY)>unit*0.12){
       stallX=ball.x; stallY=ball.y; stallSince=now; return;
     }
-    if(now-stallSince<2400) return;        /* well under the 3s ceiling, allowing kick travel */
-    escapeKick(now);
+    if(now-stallSince<BACKSTOP_MS) return;
+    if(ball.holderIdx<0) forceLooseCapture(now);   /* give the loose ball an owner… */
+    forceCarrierKick(now);                          /* …then hoof/pass it clear of the zone at once */
     stallX=ball.x; stallY=ball.y; stallSince=now;
-  }
-  /* boot the ball out of a deadlock toward goal, with a random spread so it
-     leaves in a different direction each time and can't re-trap in the zone */
-  function escapeKick(now){
-    const kicker=ball.holderIdx;
-    const team=kicker>=0?players[kicker].team:lastAttTeam;
-    const g=goalPos(team);
-    let dx=g.x-ball.x, dy=g.y-ball.y; const dl=Math.hypot(dx,dy)||1; dx/=dl; dy/=dl;
-    const a=(Math.random()-0.5)*1.7, c=Math.cos(a), s=Math.sin(a);   /* ±0.85 rad */
-    const ex=dx*c-dy*s, ey=dx*s+dy*c, v0=unit*1.5;
-    M.Body.setVelocity(ballBody,{x:ex*v0*FIXED, y:ey*v0*FIXED});
-    players.forEach(p=>p.hasBall=false);
-    ball.holderIdx=-1; ball.inFlight=true; ball.mode='pass'; ball.targetIdx=-1;
-    ball.lastKickerIdx=kicker; ball.kickCdUntil=now+450; ball._standRx=ball._standRy=null;
-    if(kicker>=0){ players[kicker].spinUntil=now+380; players[kicker].spinDir=Math.random()<0.5?-1:1; }
-    loserLockUntil=0;                       /* let anyone chase the loose ball */
-    match.phase='pass'; match.phaseUntil=now+800;
-    armKick(now);
   }
   /* held too long → pass to the most advanced open team-mate, else clear */
   function forceCarrierKick(now){
     const holder=players[ball.holderIdx];
-    if(!holder){ armKick(now); return; }
+    if(!holder) return;
     const attTeam=holder.team, myProg=progressAlong(attTeam,holder.x,holder.y);
     let best=-1,bestScore=-Infinity;
     players.forEach((p,i)=>{
@@ -2170,7 +2137,7 @@ const FootballSim = (function(){
       const d=Math.hypot(p.body.position.x-bx,p.body.position.y-by);
       if(d<bd){ bd=d; cap=i; }
     }
-    if(cap>=0) capture(cap,now); else armKick(now);
+    if(cap>=0) capture(cap,now);
   }
 
   /* ── public: step physics + AI, update positions ── */
@@ -2183,8 +2150,7 @@ const FootballSim = (function(){
     if(dt>0.08) dt=0.08;
     lastNow=now;
     runAI(now);
-    ballWatchdog(now);  /* force a kick / collection if the ball stalls (3–5s) */
-    ballStallWatch(now);  /* force it moving if the ball parks in one spot (~1.1s) */
+    ballBackstop(now);  /* last-resort: force the ball out if it parks in one zone for 3s */
     separate();        /* spread targets so players never stack / jitter together */
     acc+=dt;
     let steps=0; const maxSteps=reduceMotion?2:4;
@@ -2253,17 +2219,13 @@ const FootballSim = (function(){
     players.forEach((p,i)=>{
       const x=(p.rx||p.x)-ox, y=(p.ry||p.y)-oy;
       const kit=p.role==='GK'?hexNum(p.team===0?gk0:gk1):hexNum(p.team===0?teamColor0:teamColor1);
-      /* spin-kick flourish: rotate the body for a beat after an escape kick */
-      const spin=(p.spinUntil&&t<p.spinUntil)?((p.spinUntil-t)/380)*Math.PI*4*(p.spinDir||1):0;
-      gfx.save(); gfx.translateCanvas(x,y); if(spin) gfx.rotateCanvas(spin);
       gfx.fillStyle(kit,1);
-      gfx.fillEllipse(0,0, playerR*1.8, playerR*2.15);                              /* jersey */
+      gfx.fillEllipse(x,y, playerR*1.8, playerR*2.15);                              /* jersey */
       gfx.lineStyle(Math.max(1,playerR*0.16), darkenNum(kit,0.55),1);
-      gfx.strokeEllipse(0,0, playerR*1.8, playerR*2.15);
-      gfx.fillStyle(0xf2c9a0,1); gfx.fillCircle(0, -playerR*0.55, playerR*0.5);     /* head */
+      gfx.strokeEllipse(x,y, playerR*1.8, playerR*2.15);
+      gfx.fillStyle(0xf2c9a0,1); gfx.fillCircle(x, y-playerR*0.55, playerR*0.5);    /* head */
       gfx.lineStyle(Math.max(0.8,playerR*0.10), 0x8a5a3a,0.6);
-      gfx.strokeCircle(0, -playerR*0.55, playerR*0.5);
-      gfx.restore();
+      gfx.strokeCircle(x, y-playerR*0.55, playerR*0.5);
     });
 
     /* ball trail */
