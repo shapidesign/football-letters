@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>אצטדיון האהבה</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,9 +24,12 @@
   --ease:cubic-bezier(.22,.61,.36,1);
 }
 *,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{
+  outline:2px solid var(--cp);outline-offset:2px}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sans-serif;
   overflow:hidden;position:fixed;inset:0;-webkit-font-smoothing:antialiased}
+body.ui-open{overflow:auto;-webkit-overflow-scrolling:touch}
 
 /* canvas */
 #stadium{position:fixed;inset:0;width:100%;height:100%;display:block;background:#09090f}
@@ -95,7 +98,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 .cta-wrap{pointer-events:auto;display:flex;flex-direction:column;align-items:center}
 .wall-cta{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;font-weight:700;font-size:clamp(15px,3.8vw,19px);
   color:var(--oc);background:var(--cp);border:none;border-radius:999px;
-  padding:16px 32px;cursor:pointer;white-space:nowrap;
+  padding:16px 32px;cursor:pointer;white-space:normal;text-align:center;max-width:92vw;
   box-shadow:0 8px 32px -8px var(--cg);
   transition:transform .2s var(--ease),filter .2s,box-shadow .2s;
   animation:pcta 2.8s ease-in-out infinite}
@@ -166,6 +169,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   background-repeat:no-repeat;background-position:center;background-color:#fff;
   border:1.5px solid rgba(255,255,255,.15)}
 .cpill-name{font-size:16px;font-weight:600;color:var(--text)}
+.clubs-empty{font-size:15px;color:var(--muted);text-align:center;padding:24px 12px;margin:0}
 
 /* write */
 .write-h{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;font-size:clamp(20px,5vw,30px);font-weight:700;text-align:center;
@@ -185,6 +189,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   outline:none;font-family:inherit;font-size:18px;line-height:1.75;color:#1A1A24;
   text-align:start;direction:rtl}
 .pad textarea::placeholder{color:rgba(26,26,36,.35)}
+.letter-error{font-size:14px;color:#ef4444;text-align:center;margin:0;width:100%}
 
 /* reveal */
 #screen-reveal{justify-content:center}
@@ -234,6 +239,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   padding:16px 20px;outline:none;text-align:center;letter-spacing:.06em;
   transition:border-color .2s}
 .phone-inp:focus{border-color:var(--cp)}
+.phone-format{font-size:13px;color:var(--muted);text-align:center;margin:0}
 
 /* buttons */
 .btn{font-family:inherit;font-weight:700;font-size:17px;border:none;
@@ -245,6 +251,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 .btn-g{background:var(--surface);color:var(--muted);border:1.5px solid var(--border)}
 .btn-g:hover{color:var(--text);background:rgba(255,255,255,.07);transform:translateY(-2px);border-color:var(--cp)}
 .btn-g:active{transform:scale(.97)}
+.btn:disabled{opacity:.55;cursor:not-allowed;transform:none!important}
 .btn-wa{background:#25D366;color:#fff;display:flex;align-items:center;gap:8px;
   box-shadow:0 8px 28px -8px rgba(37,211,102,.45)}
 .btn-wa:hover{transform:translateY(-2px);filter:brightness(1.08)}
@@ -262,12 +269,12 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 .rclub{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;
   color:#6b7280;margin-bottom:14px}
 .rbody{font-size:18px;line-height:1.85;white-space:pre-wrap;word-break:break-word}
-.rclose{margin-top:20px;display:block;width:100%;font-family:inherit;font-size:14px;
-  color:#9ca3af;background:none;border:none;cursor:pointer;text-align:center;padding:8px}
+.rclose{margin-top:20px;display:block;width:100%;font-family:inherit;font-size:14px;font-weight:600;
+  color:#6b7280;background:none;border:none;cursor:pointer;text-align:center;padding:8px}
 
 /* back button */
 #backBtn{position:fixed;top:max(16px,env(safe-area-inset-top));right:16px;z-index:40;
-  width:40px;height:40px;border-radius:50%;
+  width:44px;height:44px;border-radius:50%;
   background:rgba(24,24,31,.9);border:1px solid var(--border);
   color:var(--muted);font-size:18px;cursor:pointer;font-family:inherit;
   display:none;align-items:center;justify-content:center;
@@ -289,7 +296,8 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   transform:translateX(-50%) translateY(-16px);z-index:30;display:none;
   align-items:center;gap:10px;background:rgba(13,13,18,.92);
   border:1px solid var(--border);border-radius:999px;padding:7px 14px;
-  pointer-events:auto;cursor:pointer;opacity:0;transition:opacity .4s,transform .4s var(--ease)}
+  pointer-events:auto;cursor:pointer;opacity:0;transition:opacity .4s,transform .4s var(--ease);
+  font-family:inherit;color:inherit}
 #scoreboard.on{display:flex;opacity:1;transform:translateX(-50%) translateY(0);animation:sbGlow 2.6s ease-in-out infinite}
 #scoreboard:hover{filter:brightness(1.12)}
 #scoreboard:active{transform:translateX(-50%) scale(.96)}
@@ -326,7 +334,10 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   flex-shrink:0;animation:wbpulse 1.1s ease-in-out infinite}
 @keyframes wbpulse{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
 
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.001ms!important;animation-duration:.001ms!important}}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.001ms!important;animation-duration:.001ms!important}
+  .wall-cta,#scoreboard.on,#writingBanner .wb-pulse{animation:none!important}
+}
 </style>
 </head>
 <body>
@@ -335,16 +346,16 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 <div id="gate"><div id="gate-l"></div><div id="gate-r"></div></div>
 <button id="backBtn" aria-label="חזרה">←</button>
 
-<div id="legendModal">
+<div id="legendModal" role="dialog" aria-modal="true" aria-labelledby="legendTitle" aria-hidden="true">
   <div class="lm-inner">
-    <div class="lm-header">מכתבים באצטדיון <button id="legendClose">✕</button></div>
+    <div class="lm-header"><span id="legendTitle">מכתבים באצטדיון</span> <button id="legendClose" aria-label="סגירה"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
     <div id="lmGrid"></div>
   </div>
 </div>
 
 <div id="wallui">
   <div id="seatOverlay" aria-hidden="true"></div>
-  <button id="legendBtn" aria-label="אגדה">⚽ <span id="legendCount">0</span></button>
+  <button id="legendBtn" aria-label="מכתבים באצטדיון"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19v16H6.5a2.5 2.5 0 0 0 0 5H20"/></svg> מכתבים <span id="legendCount">0</span></button>
   <div class="cta-wrap">
     <button class="wall-cta" id="addBtn">כתוב מכתב אהבה לקבוצה שאתה כל כך אוהב</button>
   </div>
@@ -372,7 +383,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
         <span id="clubCountryLabel" style="font-size:18px;font-weight:700"></span>
         <span id="clubCount" style="font-size:13px;color:var(--muted);margin-right:auto"></span>
       </div>
-      <input type="search" class="club-search" id="clubSearch" placeholder="חיפוש קבוצה..." dir="rtl" autocomplete="off">
+      <input type="search" class="club-search" id="clubSearch" placeholder="חיפוש קבוצה..." dir="rtl" autocomplete="off" aria-label="חיפוש קבוצה">
       <div class="clubs-list" id="clubs"></div>
     </div>
   </section>
@@ -380,7 +391,8 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   <section class="screen" id="screen-write">
     <div class="write-h">כתוב לקבוצה שלך מכתב אהבה.<br>מה שתמיד רצית להגיד לה.</div>
     <div class="sugg-grid" id="suggestions"></div>
-    <div class="pad"><textarea id="letterInput" placeholder="תוכל גם לכתוב משהו בעצמך" dir="rtl" rows="5"></textarea></div>
+    <div class="pad"><textarea id="letterInput" placeholder="תוכל גם לכתוב משהו בעצמך" dir="rtl" rows="5" aria-label="מכתב אהבה לקבוצה"></textarea></div>
+    <p id="letterError" class="letter-error" role="alert" hidden>כתוב לפחות משפט אחד</p>
     <button class="btn btn-p" id="sendLetter">המשך</button>
   </section>
 
@@ -393,7 +405,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
     <div class="people-g" id="people"></div>
     <div class="name-wrap" id="nameWrap">
       <div class="name-hint">רוצה להוסיף את השם שלו/שלה?</div>
-      <input type="text" class="name-inp" id="nameInput" placeholder="השם (אופציונלי)" dir="rtl">
+      <input type="text" class="name-inp" id="nameInput" placeholder="השם (אופציונלי)" dir="rtl" aria-label="שם הנמען (אופציונלי)">
     </div>
     <div class="coda" id="revCoda">אותן מילים. רק היעד השתנה.</div>
     <button class="btn btn-p" id="toConsent" style="opacity:0;pointer-events:none">המשך</button>
@@ -407,7 +419,8 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
     </div>
     <div class="phone-panel" id="phonePanel">
       <div class="phone-hint">הכנס מספר טלפון — נפתח לך וואטסאפ עם המכתב מוכן לשליחה</div>
-      <input type="tel" class="phone-inp" id="phoneInput" placeholder="050-0000000" dir="ltr" inputmode="numeric">
+      <input type="tel" class="phone-inp" id="phoneInput" placeholder="050-0000000" dir="ltr" inputmode="numeric" aria-label="מספר טלפון לשליחה בוואטסאפ">
+      <p class="phone-format">לדוגמה: 050-1234567</p>
       <button class="btn btn-wa" id="sendWA">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
         שלח בוואטסאפ
@@ -418,25 +431,25 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 
 </div>
 
-<div id="reader">
+<div id="reader" role="dialog" aria-modal="true" aria-labelledby="rName" aria-hidden="true">
   <div class="rcard">
     <div class="rclub"><span class="crest" id="rCrest"></span><span id="rName"></span></div>
     <div class="rbody" id="rBody"></div>
-    <button class="rclose" id="rClose">סגירה ✕</button>
+    <button class="rclose" id="rClose" aria-label="סגירה"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="vertical-align:middle;margin-left:6px"><path d="M18 6 6 18M6 6l12 12"/></svg> סגירה</button>
   </div>
 </div>
 
-<div id="scoreboard">
+<button type="button" id="scoreboard" aria-label="מפת מכתבים באצטדיון">
   <span class="sb-dot" id="sbDot0"></span>
   <span class="sb-num" id="sbNum0">0</span>
   <span class="sb-sep">-</span>
   <span class="sb-num" id="sbNum1">0</span>
   <span class="sb-dot" id="sbDot1"></span>
   <span class="sb-clock" id="sbClock">1'</span>
-</div>
+</button>
 <div id="hoverCrest" aria-hidden="true"></div>
-<div id="writingBanner"><span class="wb-pulse"></span><span id="writingBannerTxt"></span></div>
-<div id="toast"><span id="toastTxt"></span></div>
+<div id="writingBanner"><span class="wb-pulse"></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="flex-shrink:0"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg><span id="writingBannerTxt"></span></div>
+<div id="toast" aria-live="polite"><span id="toastTxt"></span></div>
 
 <script>
 "use strict";
@@ -831,8 +844,49 @@ function applyTheme(club){
 const $=s=>document.querySelector(s);
 const screens = {intro:$('#screen-intro'),entry:$('#screen-entry'),write:$('#screen-write'),reveal:$('#screen-reveal'),consent:$('#screen-consent')};
 
+function setScreensA11y(activeName){
+  Object.entries(screens).forEach(([key,s])=>{
+    const on=activeName===key;
+    s.setAttribute('aria-hidden',on?'false':'true');
+    if(on) s.removeAttribute('inert'); else s.inert=true;
+  });
+}
+function setBodyScroll(uiOpen){ document.body.classList.toggle('ui-open',!!uiOpen); }
+
+let dialogReturnFocus=null;
+function trapFocus(el){
+  const nodes=el.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
+  const first=nodes[0],last=nodes[nodes.length-1];
+  el._focusTrap=e=>{
+    if(e.key!=='Tab') return;
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  };
+  el.addEventListener('keydown',el._focusTrap);
+  (first||el).focus();
+}
+function openDialog(el,focusSel){
+  dialogReturnFocus=document.activeElement;
+  el.classList.add('on');
+  el.setAttribute('aria-hidden','false');
+  trapFocus(el);
+  const t=focusSel?el.querySelector(focusSel):el.querySelector('button');
+  if(t) t.focus();
+  el._escHandler=e=>{if(e.key==='Escape') closeDialog(el);};
+  document.addEventListener('keydown',el._escHandler);
+}
+function closeDialog(el){
+  el.classList.remove('on');
+  el.setAttribute('aria-hidden','true');
+  if(el._focusTrap) el.removeEventListener('keydown',el._focusTrap);
+  if(el._escHandler) document.removeEventListener('keydown',el._escHandler);
+  dialogReturnFocus?.focus(); dialogReturnFocus=null;
+}
+
 function show(name){
   Object.values(screens).forEach(s=>{s.classList.remove('active')});
+  setScreensA11y(name);
+  setBodyScroll(!!name);
   $('#ui').classList.remove('gone');
   $('#wallui').classList.remove('on');
   $('#scoreboard').classList.remove('on');
@@ -840,6 +894,8 @@ function show(name){
 }
 function showStadium(){
   Object.values(screens).forEach(s=>s.classList.remove('active'));
+  setScreensA11y(null);
+  setBodyScroll(false);
   $('#ui').classList.add('gone');
   $('#gate').classList.add('open');     /* ensure the entry gate never covers the pitch */
   $('#wallui').classList.add('on');
@@ -974,6 +1030,7 @@ const Stadium = (function(){
   function updateLegend(sorted,map){
     const total=sorted.reduce((a,id)=>a+(map[id]?map[id].length:0),0);
     const cnt=$('#legendCount'); if(cnt) cnt.textContent=total;
+    const btn=$('#legendBtn'); if(btn) btn.setAttribute('aria-label','מכתבים באצטדיון ('+total+')');
     const grid=$('#lmGrid'); if(!grid) return;
     grid.innerHTML='';
     if(!sorted.length) return;
@@ -1028,7 +1085,7 @@ const Stadium = (function(){
         ct.textContent=c;
       }
       inner.style.cursor='pointer';
-      block.onclick=()=>{ $('#legendModal').classList.remove('on'); highlightClubSeats(item.id); };
+      block.onclick=()=>{ closeLegend(); highlightClubSeats(item.id); };
       inner.append(nm,ct); block.append(inner); grid.appendChild(block);
     });
   }
@@ -2164,10 +2221,11 @@ function openReader(seat){
   crestEl($('#rCrest'),club);
   $('#rName').textContent=cname(club)+' · '+club.country;
   $('#rBody').textContent=S.letters[seat.li].text;
-  $('#reader').classList.add('on');
+  openDialog($('#reader'),'#rClose');
 }
-$('#rClose').onclick=()=>$('#reader').classList.remove('on');
-$('#reader').onclick=e=>{if(e.target.id==='reader')$('#reader').classList.remove('on');};
+function closeReader(){ closeDialog($('#reader')); }
+$('#rClose').onclick=closeReader;
+$('#reader').onclick=e=>{if(e.target.id==='reader') closeReader();};
 
 /* ── entry ── */
 let activeCountry=null;
@@ -2183,6 +2241,13 @@ function buildCountries(){
 }
 function renderClubs(list){
   const g=$('#clubs'); g.innerHTML='';
+  if(!list.length){
+    const empty=document.createElement('p');
+    empty.className='clubs-empty'; empty.textContent='לא נמצאו קבוצות';
+    g.appendChild(empty);
+    $('#clubCount').textContent='0 קבוצות';
+    return;
+  }
   list.forEach(c=>{
     const b=document.createElement('button'); b.className='cpill';
     const cr=document.createElement('span'); cr.className='crest'; crestEl(cr,c);
@@ -2220,43 +2285,68 @@ function chooseClub(c){
 
 /* ── write ── */
 function shuffle(a){const b=a.slice();for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+function chipBase(txt){ return txt.replace(/\.{3}$/,'').replace(/\s+[\u0590-\u05FF]{1,2}$/,''); }
 function renderSuggestions(){
   const box=$('#suggestions'); box.innerHTML='';
   PROMPTS.forEach(txt=>{
     const btn=document.createElement('button'); btn.className='schip'; btn.textContent=txt;
     btn.onclick=()=>{
       const ta=$('#letterInput');
-      ta.value=txt.replace(/\.{3}$/,'');                  /* selecting a suggestion replaces the box (not append), drop trailing ... */
+      ta.value=chipBase(txt);
       box.querySelectorAll('.schip').forEach(c=>c.classList.remove('on'));
-      btn.classList.add('on'); ta.focus();
+      btn.classList.add('on'); ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length);
+      $('#letterError').hidden=true;
     };
     box.appendChild(btn);
   });
 }
+$('#letterInput').addEventListener('input',()=>{
+  $('#suggestions').querySelectorAll('.schip.on').forEach(c=>c.classList.remove('on'));
+  if($('#letterInput').value.trim().length>=2) $('#letterError').hidden=true;
+});
 function goWrite(){
   show('write');
   setBack('entry-club');
   const ta=$('#letterInput'); ta.value=''; S.text='';
+  $('#letterError').hidden=true;
   renderSuggestions();
   setTimeout(()=>ta.focus(),500);
 }
 $('#sendLetter').onclick=()=>{
   const t=$('#letterInput').value.trim();
   if(t.length<2){
+    $('#letterError').hidden=false;
     const pad=$('.pad');
     pad.animate([{transform:'translateX(0)'},{transform:'translateX(-8px)'},{transform:'translateX(8px)'},{transform:'translateX(0)'}],{duration:300});
     $('#letterInput').focus(); return;
   }
+  $('#letterError').hidden=true;
   S.text=t; goReveal();
 };
 
 /* ── reveal ── */
 function flashDim(on){$('#ui').style.background=on?'#000':'var(--bg)';}
 
+let revealTimers=[];
+function clearRevealTimers(){ revealTimers.forEach(clearTimeout); revealTimers=[]; }
+function rDelay(fn,ms){ revealTimers.push(setTimeout(fn, reduceMotion ? Math.max(50,ms*0.15) : ms)); }
 
-function crowdRoar(){ return 600; }
+function finishReveal(){
+  clearRevealTimers();
+  flashDim(false);
+  const L=$('#revealLetter'); L.style.opacity='1'; L.style.transition='opacity .6s';
+  const addr=$('#revAddr');
+  addr.classList.remove('swap','striking');
+  $('#revPrompt').classList.add('show');
+  buildPeople();
+  $('#people').classList.add('show');
+  const skip=$('#skipReveal'); if(skip) skip.hidden=true;
+}
+
+function crowdRoar(){ return reduceMotion ? 90 : 600; }
 
 function goReveal(){
+  clearRevealTimers();
   show('reveal');
   setBack('write');
   $('#letterInput').blur();
@@ -2270,13 +2360,23 @@ function goReveal(){
   $('#nameInput').value='';
   $('#revCoda').classList.remove('show');
   const tc=$('#toConsent'); tc.style.opacity='0'; tc.style.pointerEvents='none';
+  let skip=$('#skipReveal');
+  if(!skip){
+    skip=document.createElement('button');
+    skip.id='skipReveal'; skip.type='button'; skip.className='btn btn-g';
+    skip.textContent='דלג';
+    skip.style.cssText='position:absolute;top:max(12px,env(safe-area-inset-top));left:16px;z-index:2';
+    $('#screen-reveal').appendChild(skip);
+  }
+  skip.hidden=false;
+  skip.onclick=finishReveal;
   flashDim(true);
   const cut=crowdRoar();
-  setTimeout(()=>{flashDim(false);L.style.opacity='1';L.style.transition='opacity .6s';},cut);
-  setTimeout(()=>{addr.classList.add('striking');},cut+1200);
-  setTimeout(()=>{addr.classList.remove('striking');addr.classList.add('swap');},cut+1900);
-  setTimeout(()=>{addr.textContent='';addr.classList.remove('swap');$('#revPrompt').classList.add('show');},cut+2400);
-  setTimeout(()=>{buildPeople();pg.classList.add('show');},cut+3000);
+  rDelay(()=>{flashDim(false);L.style.opacity='1';L.style.transition='opacity .6s';},cut);
+  rDelay(()=>{addr.classList.add('striking');},cut+1200);
+  rDelay(()=>{addr.classList.remove('striking');addr.classList.add('swap');},cut+1900);
+  rDelay(()=>{addr.textContent='';addr.classList.remove('swap');$('#revPrompt').classList.add('show');},cut+2400);
+  rDelay(()=>{buildPeople();pg.classList.add('show');skip.hidden=true;},cut+3000);
 }
 
 function buildPeople(){
@@ -2338,21 +2438,32 @@ $('#sendWA').onclick=()=>{
 $('#notNow').onclick=()=>{toast('לא עכשיו. אבל המילים נשארות איתך.');joinWall();};
 
 async function joinWall(){
-  primeAudio();
-  const myLocalLetter = {clubId:S.club.id,text:S.text,len:S.text.length};
-  S.letters.push(myLocalLetter);
-  S.pendingMyIndex=S.letters.length-1;
-  hideBack();
-  broadcastOnline();
-  $('#ui').classList.add('gone');
-  setTimeout(()=>{showStadium();Stadium.relayout(true);playGoalSound();},650);
-  setTimeout(()=>{Stadium.zoomToMySeat();},1500);
-  
-  if(typeof supabaseClient !== 'undefined'){
-    const { data } = await supabaseClient.from('letters').insert([
-      { club_id: S.club.id, text: S.text, len: S.text.length }
-    ]).select();
-    if(data && data[0]){ myLocalLetter.id=data[0].id; skipSoundForLetterId=data[0].id; }
+  const saveBtns=['#sendReal','#notNow','#sendWA'].map(s=>$(s)).filter(Boolean);
+  const sendReal=$('#sendReal');
+  const origLabel=sendReal?sendReal.textContent:'';
+  saveBtns.forEach(b=>{b.disabled=true;});
+  if(sendReal) sendReal.textContent='שומר…';
+  try{
+    primeAudio();
+    const myLocalLetter = {clubId:S.club.id,text:S.text,len:S.text.length};
+    S.letters.push(myLocalLetter);
+    S.pendingMyIndex=S.letters.length-1;
+    hideBack();
+    broadcastOnline();
+    $('#ui').classList.add('gone');
+    setBodyScroll(false);
+    setTimeout(()=>{showStadium();Stadium.relayout(true);playGoalSound();},650);
+    setTimeout(()=>{Stadium.zoomToMySeat();},1500);
+
+    if(typeof supabaseClient !== 'undefined'){
+      const { data } = await supabaseClient.from('letters').insert([
+        { club_id: S.club.id, text: S.text, len: S.text.length }
+      ]).select();
+      if(data && data[0]){ myLocalLetter.id=data[0].id; skipSoundForLetterId=data[0].id; }
+    }
+  } finally {
+    saveBtns.forEach(b=>{b.disabled=false;});
+    if(sendReal) sendReal.textContent=origLabel;
   }
 }
 
@@ -2393,7 +2504,7 @@ $('#addBtn').onclick=()=>{
 
 /* ── toast ── */
 let toastT;
-function toast(msg){const e=$('#toastTxt');e.textContent=msg;e.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('on'),3600);}
+function toast(msg,dur=3600){const e=$('#toastTxt');e.textContent=msg;e.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('on'),dur);}
 
 /* ── desktop detection (mobile-first; desktop is the display screen) ── */
 function isDesktop(){ return window.matchMedia('(min-width:1024px) and (pointer:fine)').matches; }
@@ -2425,7 +2536,7 @@ document.addEventListener('pointerdown',primeAudio,{once:true});
 let writingBannerT=null;
 let seenWriters=new Set();      /* writer ids already announced (avoid re-triggering) */
 function showWritingBanner(clubName){
-  $('#writingBannerTxt').textContent='מישהו כותב מכתב אהבה ל'+clubName+' ✉️';
+  $('#writingBannerTxt').textContent='מישהו כותב מכתב אהבה ל'+clubName;
   $('#writingBanner').classList.add('on');
   $('#scoreboard').classList.remove('on');             /* avoid overlap at top-center */
   clearTimeout(writingBannerT);
@@ -2469,19 +2580,32 @@ function onNewLetter(letterIdx){
 }
 
 /* ── entrance animation ── */
+let stadiumHintShown=localStorage.getItem('stadiumHint')==='1';
 $('#enterBtn').onclick=()=>{
   hideBack();
   $('#ui').classList.add('gone');
+  setBodyScroll(false);
   setTimeout(()=>$('#gate').classList.add('open'),200);
   setTimeout(()=>{$('#wallui').classList.add('on');$('#scoreboard').classList.add('on');
-    if(typeof FootballSim!=='undefined'&&FootballSim.renderScoreboard) FootballSim.renderScoreboard();},1050);
+    if(typeof FootballSim!=='undefined'&&FootballSim.renderScoreboard) FootballSim.renderScoreboard();
+    if(!stadiumHintShown){
+      stadiumHintShown=true;
+      localStorage.setItem('stadiumHint','1');
+      toast('לחץ על מושב צבעוני לקרוא מכתב · או כתוב משלך למטה',5000);
+    }
+  },1050);
 };
 
 /* ── legend modal ── */
-$('#legendBtn').onclick=()=>{ if(typeof Stadium!=='undefined'&&Stadium.refreshLegend) Stadium.refreshLegend(); $('#legendModal').classList.add('on'); };
-$('#scoreboard').onclick=()=>{ if(typeof Stadium!=='undefined'&&Stadium.refreshLegend) Stadium.refreshLegend(); $('#legendModal').classList.add('on'); };
-$('#legendClose').onclick=()=>$('#legendModal').classList.remove('on');
-$('#legendModal').onclick=e=>{if(e.target.id==='legendModal')$('#legendModal').classList.remove('on');};
+function openLegend(){
+  if(typeof Stadium!=='undefined'&&Stadium.refreshLegend) Stadium.refreshLegend();
+  openDialog($('#legendModal'),'#legendClose');
+}
+function closeLegend(){ closeDialog($('#legendModal')); }
+$('#legendBtn').onclick=openLegend;
+$('#scoreboard').onclick=openLegend;
+$('#legendClose').onclick=closeLegend;
+$('#legendModal').onclick=e=>{if(e.target.id==='legendModal') closeLegend();};
 
 /* ── Supabase ── */
 const SUPABASE_URL = 'https://svmgctxeojtdbntecohm.supabase.co';
@@ -2492,6 +2616,7 @@ const myId = Math.random().toString(36).slice(2);
 let broadcastChannel = null;
 
 async function initSupabase(){
+  toast('טוען מכתבים…',8000);
   try {
     // 1. Fetch existing letters
     const { data, error } = await supabaseClient.from('letters').select('*');
@@ -2503,6 +2628,8 @@ async function initSupabase(){
         Stadium.assign();
       }
     }
+    clearTimeout(toastT);
+    $('#toastTxt').classList.remove('on');
 
     // 2. Listen to new letters
     supabaseClient.channel('public:letters')
