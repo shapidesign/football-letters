@@ -8,8 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 <style>
 @font-face {
   font-family: 'Reisinger-Yarden-MaccabiahRound';
@@ -32,11 +30,6 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 
 /* canvas */
 #stadium{position:fixed;inset:0;width:100%;height:100%;display:block;background:#09090f}
-
-/* football match overlay (Phaser-rendered, synced to stadium camera) */
-#footballLayer{position:fixed;left:0;top:0;transform-origin:0 0;pointer-events:none;
-  z-index:1;will-change:transform}
-#footballLayer canvas{display:block;pointer-events:none}
 
 /* gate */
 #gate{position:fixed;inset:0;z-index:10;pointer-events:none}
@@ -306,6 +299,11 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 #scoreboard .sb-num{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;
   font-weight:800;font-size:20px;line-height:1;color:var(--text);min-width:14px;text-align:center}
 #scoreboard .sb-sep{color:var(--muted);font-weight:700;font-size:16px}
+#scoreboard .sb-clock{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;
+  font-weight:700;font-size:13px;line-height:1;color:var(--muted);min-width:30px;text-align:center;
+  direction:ltr;border-inline-start:1px solid var(--border);padding-inline-start:9px}
+#scoreboard.goal-pulse{animation:sbGoal .5s ease-in-out 3}
+@keyframes sbGoal{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.16)}}
 /* hover crest (desktop) — floats above the cursor over a seat */
 #hoverCrest{position:fixed;width:46px;height:46px;border-radius:50%;background-size:contain;
   background-repeat:no-repeat;background-position:center;background-color:#fff;
@@ -334,7 +332,6 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
 <body>
 
 <canvas id="stadium"></canvas>
-<div id="footballLayer"></div>
 <div id="gate"><div id="gate-l"></div><div id="gate-r"></div></div>
 <button id="backBtn" aria-label="חזרה">←</button>
 
@@ -435,6 +432,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rubik',-apple-system,sa
   <span class="sb-sep">-</span>
   <span class="sb-num" id="sbNum1">0</span>
   <span class="sb-dot" id="sbDot1"></span>
+  <span class="sb-clock" id="sbClock">1'</span>
 </div>
 <div id="hoverCrest" aria-hidden="true"></div>
 <div id="writingBanner"><span class="wb-pulse"></span><span id="writingBannerTxt"></span></div>
@@ -1330,105 +1328,50 @@ const Stadium = (function(){
 })();
 
 /* ── FootballSim ──
-   Physics: Matter.js (headless world sized to the pitch). Rendering: Phaser
-   (one transparent canvas overlay synced to the Stadium camera transform). */
+   Self-contained 2D match simulation. No physics engine: 22 players + a ball
+   only need dt-kinematics, and drawing straight into the Stadium canvas (the
+   ctx is already inside the camera transform) makes zoom/pan sync free.
+   Match framing: two 45' halves on a real-time clock, guaranteed goals,
+   GK saves, tackles, celebrations with confetti. */
 const FootballSim = (function(){
-  const M  = (typeof Matter !== 'undefined') ? Matter  : null;
-  const PH = (typeof Phaser !== 'undefined') ? Phaser  : null;
 
-  let players=[], pr=null;
-  let teamColor0='#7B4FFF', teamColor1='#C8102E';
-  let gk0='#f6ff00', gk1='#00e676';
-  let lastNow=0, kickoffTeam=0, lastTurnover=0, lastAttTeam=0, acc=0;
-  let match={phase:'kickoff', phaseUntil:0, passCount:0};
-  let score=[0,0];                        /* live match score [team0, team1] */
-  const GOAL_MIN_MS=3*60*1000, GOAL_MAX_MS=5*60*1000;
-  let lastGoalAt=0, nextGoalDueAt=0, nextForceGoalAt=0;
-  function scheduleNextGoal(now){
-    lastGoalAt=now||performance.now();
-    nextGoalDueAt=lastGoalAt+GOAL_MIN_MS+Math.random()*(GOAL_MAX_MS-GOAL_MIN_MS);
-    nextForceGoalAt=0;
-  }
-  function goalUrgency(now){
-    if(!nextGoalDueAt) return 0;
-    const left=nextGoalDueAt-now;
-    if(left<=0) return 1;
-    if(left<=90000) return 0.72+(1-left/90000)*0.28;
-    if(left<=180000) return 0.38+(1-left/180000)*0.34;
-    return Math.max(0,(GOAL_MAX_MS-left)/(GOAL_MAX_MS-GOAL_MIN_MS)*0.22);
-  }
-  function bestShooter(team){
-    let bestIdx=-1, bestScore=-Infinity;
-    players.forEach((p,i)=>{
-      if(p.team!==team||p.role==='GK') return;
-      const prog=progressAlong(team,p.x,p.y);
-      const g=goalPos(team);
-      const dist=Math.hypot(p.x-g.x,p.y-g.y);
-      const s=prog*2-(dist/unit)*0.45+(p.role==='FWD'?0.35:p.role==='MID'?0.15:0);
-      if(s>bestScore){ bestScore=s; bestIdx=i; }
-    });
-    return bestIdx;
-  }
-  function forceGoalAttempt(now){
-    const team=lastAttTeam;
-    const idx=bestShooter(team);
-    if(idx<0||!ballBody) return;
-    const shooter=players[idx];
-    const prog=progressAlong(team,shooter.x,shooter.y);
-    const spot=prog<0.58?aheadPoint(team,shooter.x,shooter.y,unit*0.24,0):clampPitchPt({x:shooter.x,y:shooter.y});
-    if(shooter.body){
-      M.Body.setPosition(shooter.body,{x:spot.x,y:spot.y});
-      M.Body.setVelocity(shooter.body,{x:0,y:0});
-    }
-    shooter.x=spot.x; shooter.y=spot.y;
-    shooter._standRx=shooter._standRy=shooter.rx=shooter.ry=null;
-    const g=goalPos(team);
-    const dx=g.x-spot.x, dy=g.y-spot.y, dl=Math.hypot(dx,dy)||1;
-    const off=playerR+ballR+1.2;
-    M.Body.setPosition(ballBody,{x:spot.x+(dx/dl)*off,y:spot.y+(dy/dl)*off});
-    M.Body.setVelocity(ballBody,{x:0,y:0});
-    capture(idx,now);
-    shoot(shooter,team,now,true);
-  }
-  const FIXED=1/60;                       /* fixed physics timestep (s) */
-  const BALL_K=0.014*60;                  /* ball air-drag decay rate (1/s) — tuned slower */
-  const STAND_VEL=0.014;                  /* below this speed, freeze idle motion */
-  function stopDist(){ return Math.max(3.5, unit*0.016); }
-  function standDist(){ return Math.max(4, unit*0.024); }
-  function isIdle(b, tx, ty){
-    if(!b) return false;
-    const vl=Math.hypot(b.velocity.x,b.velocity.y);
-    const d=Math.hypot((tx??b.position.x)-b.position.x,(ty??b.position.y)-b.position.y);
-    return vl<STAND_VEL && d<standDist();
-  }
+  /* ── tuning ── */
+  const FAST=/[?&]fast/.test(location.search);   /* ?fast → compressed demo match */
+  const HALF_REAL_MS = FAST?60*1000:5*60*1000;   /* one 45' half plays out in 5 real minutes */
+  const GOAL_MIN_MS  = FAST?8*1000:3*60*1000;    /* guaranteed-goal window: 3–5 real minutes */
+  const GOAL_MAX_MS  = FAST?15*1000:5*60*1000;
+  const CELEBRATE_MS = 2800;        /* goal celebration length */
+  const BREAK_MS     = 3200;        /* half-time / full-time hold */
+  const KICKOFF_MS   = 900;
+  const SETTLE_MS    = 250;         /* new carrier thinks this long before pass/shot */
+  const TACKLE_CD_MS = 450;
+  const TACKLE_WIN   = 0.5;
+  const RECOVER_MS   = 1200;        /* beaten carrier can't challenge for this long */
+  const BEATEN_MS    = 900;         /* defender who missed a tackle backs off */
+  const BALL_K       = 0.84;        /* ball drag decay (1/s) */
+  const STALL_MS     = 2500;        /* ball parked in one zone this long → force clear */
 
-  /* higher-level ball state (positions come from the Matter body) */
-  let ball={x:0,y:0,holderIdx:-1,inFlight:false,mode:'pass',shooterTeam:0,
-            targetIdx:-1,kickCdUntil:0,lastKickerIdx:-1};
-
-  /* ── possession model tuning (feel knobs; logic below never hard-codes these) ── */
-  const SETTLE_MS=250;              /* after gaining the ball, wait this before pass/shot */
-  const TACKLE_CD_MS=450;           /* min gap between a defender's tackle attempts */
-  const TACKLE_WIN=0.5;             /* base chance a challenge wins the ball */
-  const RECOVER_MS=1200;            /* beaten carrier retreats, can't challenge, this long */
-  const BEATEN_MS=900;              /* defender who missed a tackle backs off this long */
-  const BACKSTOP_MS=2200;           /* ball parked in one zone this long → force clear (stays well under a 3s ceiling incl. kick travel) */
-
-  /* physics handles */
-  let engine=null, world=null, ballBody=null;
-  let unit=300, playerR=8, ballR=4, margin=16;
-  const COLLISION={player:0x0002, ball:0x0004, wall:0x0008};
-
-  /* rendering handles */
-  let game=null, scene=null, gfx=null, layerEl=null, ready=false;
-  let offX=0, offY=0, gameW=2, gameH=2;
-  let trailPts=[], trailAt=0;
+  /* ── state ── */
+  let pr=null, unit=300, playerR=8, ballR=4;
+  let players=[];
+  let ball={x:0,y:0,vx:0,vy:0,holderIdx:-1,inFlight:false,mode:'pass',
+            targetIdx:-1,lastKickerIdx:-1,kickCdUntil:0,shooterTeam:0,unsavable:false};
+  let teamColor0='#7B4FFF', teamColor1='#C8102E', gk0='#f6ff00', gk1='#00e676';
+  let score=[0,0];
+  let match={half:1,phase:'kickoff',phaseUntil:0,halfStartAt:0,breakKind:'',concededBy:0,passCount:0};
+  let kickoffTeam=0, lastAttTeam=0, lastTurnover=0, lastNow=0;
+  let nextGoalDueAt=0, nextForceAt=0;
+  let confetti=[], trailPts=[], trailAt=0;
+  let celeb=null;                   /* {team, scorerIdx} while phase==='goal' */
+  let clockTxtAt=0;
 
   /* 4-4-2: fx=0 own goal→0.5 halfway, fy=0→1 top→bottom */
   const FORM=[[.04,.50],[.20,.12],[.20,.38],[.20,.62],[.20,.88],[.40,.15],[.40,.38],[.40,.62],[.40,.85],[.48,.30],[.48,.70]];
   const ROLE=['GK','DEF','DEF','DEF','DEF','MID','MID','MID','MID','FWD','FWD'];
+  const HAIR=['#1c1208','#33240f','#553a1b','#141414','#6e5b3c','#2b2b2b'];
 
   /* ── tactical geometry ── */
+  function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
   function pitchCoord(team,ri,attack){
     if(!pr) return{x:0,y:0};
     const[fx,fy]=FORM[ri];
@@ -1451,7 +1394,6 @@ const FootballSim = (function(){
     if(!portrait) return team===0?{x:px+pw,y:py+ph/2}:{x:px,y:py+ph/2};
     return team===0?{x:px+pw/2,y:py+ph}:{x:px+pw/2,y:py};
   }
-  function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
   function attackAxes(team){
     if(!pr) return{ax:1,ay:0,lx:0,ly:1};
     if(!pr.portrait) return team===0?{ax:1,ay:0,lx:0,ly:1}:{ax:-1,ay:0,lx:0,ly:1};
@@ -1490,10 +1432,21 @@ const FootballSim = (function(){
     });
     return{idx:bi,dist:bd};
   }
+  function bestShooter(team){
+    let bestIdx=-1, bestScore=-Infinity;
+    players.forEach((p,i)=>{
+      if(p.team!==team||p.role==='GK') return;
+      const prog=progressAlong(team,p.x,p.y);
+      const g=goalPos(team);
+      const dist=Math.hypot(p.x-g.x,p.y-g.y);
+      const s=prog*2-(dist/unit)*0.45+(p.role==='FWD'?0.35:p.role==='MID'?0.15:0);
+      if(s>bestScore){ bestScore=s; bestIdx=i; }
+    });
+    return bestIdx;
+  }
 
-  /* ── colour helpers for the Phaser renderer ── */
-  function hexNum(hex){const[r,g,b]=hex2rgb(hex);return (r<<16)|(g<<8)|b;}
-  function darkenNum(n,f){let r=(n>>16)&255,g=(n>>8)&255,b=n&255;return (Math.round(r*f)<<16)|(Math.round(g*f)<<8)|Math.round(b*f);}
+  /* ── colour helpers ── */
+  function shade(hex,f){ try{const[r,g,b]=hex2rgb(hex);return `rgb(${r*f|0},${g*f|0},${b*f|0})`;}catch(e){return hex;} }
   function gkColorFor(kitHex,avoidHex){
     const pal=['#f6ff00','#00e676','#ff7043','#00b0ff','#ff4081','#ffffff'];
     let best=pal[0],bd=-1;
@@ -1501,159 +1454,95 @@ const FootballSim = (function(){
     return best;
   }
 
-  /* ── Matter body factory ── */
+  /* ── setup ── */
   function mkP(team,ri){
     const{x,y}=pitchCoord(team,ri,false);
-    const body=M?M.Bodies.circle(x,y,playerR,{frictionAir:0.18,friction:0,restitution:0,density:0.025,
-      collisionFilter:{category:COLLISION.player,mask:COLLISION.wall},label:'player'}):null;
-    if(body) M.Body.setInertia(body, Infinity);   /* lock rotation */
-    return{team,x,y,rx:x,ry:y,tx:x,ty:y,role:ROLE[ri],ri,_ox:0,_oy:0,_tox:0,_toy:0,
-      _bdx:team===0?1:-1,_bdy:0,_fx:team===0?1:-1,_fy:0,spd:0,
-      hasBall:false,dribbleAt:0,passAt:0,shotAt:0,
-      wanderAt:performance.now()+Math.random()*2500, body};
+    return{team,ri,role:ROLE[ri],x,y,vx:0,vy:0,tx:x,ty:y,spd:0,
+      fx:team===0?1:-1,fy:0,stride:0,hair:HAIR[(ri*7+team*3)%HAIR.length],
+      settleUntil:0,beatenUntil:0,recoverUntil:0,burstUntil:0,nextTackleAt:0,
+      gotBallAt:0,wanderAt:performance.now()+Math.random()*2500,
+      _ox:0,_oy:0,_tox:0,_toy:0};
   }
-
-  /* pitch boundary walls with goal gaps, goalposts and back-nets */
-  function buildWalls(){
-    const{px,py,pw,ph,portrait}=pr;
-    const t=Math.max(30, playerR*3);
-    const X0=px,Y0=py,X1=px+pw,Y1=py+ph;
-    const arr=[];
-    const wallFilter={category:COLLISION.wall,mask:COLLISION.player|COLLISION.ball};
-    const add=(cx,cy,w,h,rest)=>arr.push(M.Bodies.rectangle(cx,cy,Math.max(2,w),Math.max(2,h),{isStatic:true,restitution:rest==null?0.3:rest,friction:0,collisionFilter:wallFilter,label:'wall'}));
-    const post=(x,y)=>arr.push(M.Bodies.circle(x,y,Math.max(3,ballR*0.9),{isStatic:true,restitution:0.6,friction:0,collisionFilter:wallFilter,label:'post'}));
-    const depth=Math.max(10, margin*0.8);
-    if(!portrait){
-      const cyM=py+ph/2, mh=ph*0.108, top=cyM-mh/2, bot=cyM+mh/2;
-      add(px+pw/2, Y0-t/2, pw+2*t, t);                 /* top touchline */
-      add(px+pw/2, Y1+t/2, pw+2*t, t);                 /* bottom touchline */
-      add(X0-t/2,(Y0-t+top)/2, t, top-(Y0-t));         /* left goal line (upper) */
-      add(X0-t/2,(bot+Y1+t)/2, t,(Y1+t)-bot);          /* left goal line (lower) */
-      add(X1+t/2,(Y0-t+top)/2, t, top-(Y0-t));         /* right goal line (upper) */
-      add(X1+t/2,(bot+Y1+t)/2, t,(Y1+t)-bot);          /* right goal line (lower) */
-      add(X0-depth-t/2, cyM, t, mh+2*ballR, 0.05);     /* left net */
-      add(X1+depth+t/2, cyM, t, mh+2*ballR, 0.05);     /* right net */
-      post(X0,top);post(X0,bot);post(X1,top);post(X1,bot);
-    } else {
-      const cxM=px+pw/2, mw=pw*0.108, left=cxM-mw/2, right=cxM+mw/2;
-      add(X0-t/2, py+ph/2, t, ph+2*t);                 /* left touchline */
-      add(X1+t/2, py+ph/2, t, ph+2*t);                 /* right touchline */
-      add((X0-t+left)/2, Y0-t/2, left-(X0-t), t);      /* top goal line (left) */
-      add((right+X1+t)/2, Y0-t/2,(X1+t)-right, t);     /* top goal line (right) */
-      add((X0-t+left)/2, Y1+t/2, left-(X0-t), t);      /* bottom goal line (left) */
-      add((right+X1+t)/2, Y1+t/2,(X1+t)-right, t);     /* bottom goal line (right) */
-      add(cxM, Y0-depth-t/2, mw+2*ballR, t, 0.05);     /* top net */
-      add(cxM, Y1+depth+t/2, mw+2*ballR, t, 0.05);     /* bottom net */
-      post(left,Y0);post(right,Y0);post(left,Y1);post(right,Y1);
-    }
-    return arr;
-  }
-
-  function buildWorld(now){
-    if(!M){ players=[]; return; }
-    engine=M.Engine.create();
-    engine.gravity.x=0; engine.gravity.y=0;     /* top-down: no gravity */
-    world=engine.world;
-    players=[];
-    FORM.forEach((_,ri)=>{ players.push(mkP(0,ri)); players.push(mkP(1,ri)); });
-    const cx=pr.px+pr.pw/2, cy=pr.py+pr.ph/2;
-    ballBody=M.Bodies.circle(cx,cy,ballR,{frictionAir:0.042,friction:0,frictionStatic:0,restitution:0.48,density:0.006,
-      collisionFilter:{category:COLLISION.ball,mask:COLLISION.wall},label:'ball'});
-    M.Body.setInertia(ballBody, Infinity);
-    M.World.add(world,[...players.map(p=>p.body), ballBody, ...buildWalls()]);
-    resetKickoff(0, now);
-    if(!nextGoalDueAt) scheduleNextGoal(now);
-  }
-
-  /* ── Phaser overlay ── */
-  function ensureGame(gw,gh){
-    if(game||!PH) return;
-    layerEl=document.getElementById('footballLayer');
-    gameW=gw; gameH=gh;
-    game=new PH.Game({
-      type:PH.AUTO, parent:'footballLayer', width:gw, height:gh,
-      transparent:true, banner:false, audio:{noAudio:true},
-      scale:{mode:PH.Scale.NONE},
-      fps:{target:60,min:30},
-      scene:{ create:function(){ scene=this; gfx=this.add.graphics(); ready=true; },
-              update:function(){ drawScene(); } }
-    });
-  }
-
   function layout(pitchRect){
     pr=pitchRect;
-    const{px,py,pw,ph}=pr;
-    unit=Math.min(pw,ph);
-    playerR=Math.max(7, unit*0.030);   /* ~1.8–2.2× the old r:5, scaled to pitch */
+    unit=Math.min(pr.pw,pr.ph);
+    playerR=Math.max(7, unit*0.030);
     ballR=Math.max(3.5, unit*0.016);
-    margin=Math.max(12, unit*0.05);
-    offX=px-margin; offY=py-margin;
-    const gw=Math.max(2,Math.round(pw+2*margin)), gh=Math.max(2,Math.round(ph+2*margin));
-    ensureGame(gw,gh);
-    if(game&&(gw!==gameW||gh!==gameH)){ gameW=gw; gameH=gh; try{game.scale.resize(gw,gh);}catch(e){} }
-    if(layerEl){ layerEl.style.width=gw+'px'; layerEl.style.height=gh+'px'; }
-    syncTransform();
   }
-
-  /* keep the overlay locked to the Stadium camera (zoom-to-seat etc.) */
-  function syncTransform(){
-    if(!layerEl) return;
-    const cam=(typeof Stadium!=='undefined'&&Stadium.getCam)?Stadium.getCam():{scale:1,ox:0,oy:0};
-    const tx=cam.ox+offX*cam.scale, ty=cam.oy+offY*cam.scale;
-    layerEl.style.transform=`translate(${tx}px,${ty}px) scale(${cam.scale})`;
-  }
-
-  function syncFromBodies(){
-    const pEase=reduceMotion?0.12:0.17, bEase=reduceMotion?0.14:0.20;
-    const snapPlayer=unit*.62, snapBall=unit*.72;
-    for(let i=0;i<players.length;i++){
-      const p=players[i], b=p.body; if(!b) continue;
-      p.x=b.position.x; p.y=b.position.y;
-      const idle=isIdle(b,p.tx,p.ty);
-      if(idle){
-        if(p._standRx==null){ p._standRx=p.rx??p.x; p._standRy=p.ry??p.y; }
-        p.rx=p._standRx; p.ry=p._standRy;
-        continue;
-      }
-      p._standRx=p._standRy=null;
-      if(p.rx==null||Math.hypot(p.rx-p.x,p.ry-p.y)>snapPlayer){ p.rx=p.x; p.ry=p.y; }
-      else { p.rx+=(p.x-p.rx)*pEase; p.ry+=(p.y-p.ry)*pEase; }
-    }
-    if(ballBody){
-      ball.x=ballBody.position.x; ball.y=ballBody.position.y;
-      if(ball.holderIdx>=0){
-        const h=players[ball.holderIdx];
-        if(h&&h.body&&h._standRx!=null){
-          const ox=ballBody.position.x-h.body.position.x, oy=ballBody.position.y-h.body.position.y;
-          if(ball._standRx==null){ ball._standRx=h._standRx+ox; ball._standRy=h._standRy+oy; }
-          ball.rx=ball._standRx; ball.ry=ball._standRy;
-        }else{
-          ball._standRx=ball._standRy=null;
-          if(ball.rx==null||Math.hypot(ball.rx-ball.x,ball.ry-ball.y)>snapBall){ ball.rx=ball.x; ball.ry=ball.y; }
-          else { ball.rx+=(ball.x-ball.rx)*bEase; ball.ry+=(ball.y-ball.ry)*bEase; }
-        }
-      }else{
-        const bvl=Math.hypot(ballBody.velocity.x,ballBody.velocity.y);
-        const ballIdle=bvl<STAND_VEL*1.6;
-        if(ballIdle){
-          if(ball._standRx==null){ ball._standRx=ball.rx??ball.x; ball._standRy=ball.ry??ball.y; }
-          ball.rx=ball._standRx; ball.ry=ball._standRy;
-        }else{
-          ball._standRx=ball._standRy=null;
-          if(ball.rx==null||Math.hypot(ball.rx-ball.x,ball.ry-ball.y)>snapBall){ ball.rx=ball.x; ball.ry=ball.y; }
-          else { ball.rx+=(ball.x-ball.rx)*bEase; ball.ry+=(ball.y-ball.ry)*bEase; }
-        }
-      }
-    }
-  }
-
-  /* ── public: rebuild physics world + overlay layout for a pitch rect ── */
   function reinit(pitchRect){
     if(!pitchRect) return;
     layout(pitchRect);
-    buildWorld(performance.now());
-    lastNow=0; acc=0;
-    syncTransform();
+    const now=performance.now();
+    players=[];
+    FORM.forEach((_,ri)=>{ players.push(mkP(0,ri)); players.push(mkP(1,ri)); });
+    if(!match.halfStartAt){ match.halfStartAt=now; kickoffTeam=Math.random()<.5?0:1; }
+    if(!nextGoalDueAt) scheduleNextGoal(now);
+    celeb=null; confetti.length=0;
+    resetKickoff(kickoffTeam,now);
+    lastNow=0;
+  }
+
+  /* ── guaranteed-goal pacing ── */
+  function scheduleNextGoal(now){
+    nextGoalDueAt=now+GOAL_MIN_MS+Math.random()*(GOAL_MAX_MS-GOAL_MIN_MS);
+    nextForceAt=0;
+  }
+  function goalUrgency(now){
+    if(!nextGoalDueAt) return 0;
+    const left=nextGoalDueAt-now;
+    if(left<=0) return 1;
+    if(left<=90000) return 0.72+(1-left/90000)*0.28;
+    if(left<=180000) return 0.38+(1-left/180000)*0.34;
+    return Math.max(0,(GOAL_MAX_MS-left)/(GOAL_MAX_MS-GOAL_MIN_MS)*0.22);
+  }
+  /* overdue well past the window → snap the ball to the best-placed attacker
+     and fire an unsavable shot (ponytail: blunt, but guarantees the show goes on) */
+  function forceGoalNow(now){
+    const team=lastAttTeam;
+    const idx=bestShooter(team);
+    if(idx<0) return;
+    const s=players[idx];
+    capture(idx,now);
+    ball.x=s.x; ball.y=s.y;
+    shoot(s,team,now,true,true);
+  }
+
+  /* ── match phases: kickoff → play → (goal | break) ── */
+  function tickMatch(now){
+    if(match.phase==='kickoff'){
+      if(now>=match.phaseUntil) match.phase='play';
+      return;
+    }
+    if(match.phase==='play'){
+      if(now-match.halfStartAt>=HALF_REAL_MS && !ball.inFlight){
+        match.phase='break';
+        match.breakKind=match.half===1?'ht':'ft';
+        match.phaseUntil=now+BREAK_MS;
+        ball.holderIdx=-1; ball.inFlight=false; ball.vx=ball.vy=0;
+        ball.unsavable=false;
+        const c=clampPitchPt({x:pr.px+pr.pw/2,y:pr.py+pr.ph/2});
+        ball.x=c.x; ball.y=c.y;
+      }
+      return;
+    }
+    if(match.phase==='goal'){
+      if(now>=match.phaseUntil){
+        celeb=null;
+        resetKickoff(match.concededBy,now);
+      }
+      return;
+    }
+    if(match.phase==='break' && now>=match.phaseUntil){
+      if(match.breakKind==='ht'){
+        match.half=2; match.halfStartAt=now;
+        resetKickoff(1-kickoffTeam,now);
+      }else{
+        score=[0,0]; renderScoreboard();
+        match.half=1; match.halfStartAt=now;
+        scheduleNextGoal(now);
+        resetKickoff(Math.random()<.5?0:1,now);
+      }
+    }
   }
 
   /* ── off-ball positioning: supporting runs around the carrier ── */
@@ -1696,23 +1585,66 @@ const FootballSim = (function(){
     p.tx=clamp(bx+(p._ox||0),px+6,px+pw-6);
     p.ty=clamp(by+(p._oy||0),py+6,py+ph-6);
   }
-  function setGK(p){
-    const{px,py,pw,ph}=pr; const base=pitchCoord(p.team,p.ri,false);
-    if(pr.portrait){ p.tx=Math.max(px+pw*0.34,Math.min(px+pw*0.66, ball.x)); p.ty=base.y; }
-    else           { p.ty=Math.max(py+ph*0.34,Math.min(py+ph*0.66, ball.y)); p.tx=base.x; }
+  /* GK: hold the line; on an incoming shot, attack the ball's path */
+  function setGK(p,SPD){
+    const base=pitchCoord(p.team,p.ri,false);
+    const{px,py,pw,ph}=pr;
+    if(ball.inFlight && ball.mode==='shot' && ball.shooterTeam!==p.team && !ball.unsavable){
+      /* intercept where the shot crosses my goal line */
+      const g=goalPos(1-p.team);   /* my own goal = opponent's target */
+      let ix=ball.x, iy=ball.y;
+      if(!pr.portrait){
+        const t=(g.x-ball.x)/(ball.vx||1e-4);
+        if(t>0){ ix=g.x; iy=ball.y+ball.vy*t; }
+        p.tx=base.x; p.ty=clamp(iy,py+ph*0.40,py+ph*0.60);
+      }else{
+        const t=(g.y-ball.y)/(ball.vy||1e-4);
+        if(t>0){ iy=g.y; ix=ball.x+ball.vx*t; }
+        p.ty=base.y; p.tx=clamp(ix,px+pw*0.40,px+pw*0.60);
+      }
+      p.spd=SPD.gk*1.7;
+      return;
+    }
+    if(pr.portrait){ p.tx=clamp(ball.x,px+pw*0.34,px+pw*0.66); p.ty=base.y; }
+    else           { p.ty=clamp(ball.y,py+ph*0.34,py+ph*0.66); p.tx=base.x; }
+    p.spd=SPD.gk;
   }
 
-  /* ── possession AI: role dispatch. Invariant — someone is always MOVING with
-     the ball. The carrier never idles; a challenge always resolves into motion
-     (winner drives on, loser drops off) instead of a frozen adjacency. ── */
-  function runAI(now){
-    if(!nextGoalDueAt) scheduleNextGoal(now);
-    const urgency=goalUrgency(now);
-    if(now>=nextGoalDueAt && !(ball.inFlight&&ball.mode==='shot')){   /* guarantee a goal by the due time */
-      if(!nextForceGoalAt||now>=nextForceGoalAt){
-        forceGoalAttempt(now);
-        nextForceGoalAt=now+(reduceMotion?18000:10000);
+  /* ── goal celebration: scorer to the corner, teammates mob him ── */
+  function celebrationAI(){
+    if(!celeb) return;
+    const sc=players[celeb.scorerIdx];
+    const{px,py,pw,ph}=pr;
+    players.forEach((p,i)=>{
+      if(p.role==='GK'){ const b=pitchCoord(p.team,p.ri,false); p.tx=b.x; p.ty=b.y; p.spd=unit*0.10; return; }
+      if(p.team===celeb.team){
+        if(i===celeb.scorerIdx){
+          const corner={x:sc.x<px+pw/2?px+pw*0.06:px+pw*0.94, y:sc.y<py+ph/2?py+ph*0.06:py+ph*0.94};
+          p.tx=corner.x; p.ty=corner.y; p.spd=unit*0.26;
+        }else if(sc){
+          p.tx=sc.x; p.ty=sc.y; p.spd=unit*0.24;
+        }
+      }else{
+        const b=pitchCoord(p.team,p.ri,false);
+        p.tx=b.x; p.ty=b.y; p.spd=unit*0.09;
       }
+    });
+  }
+
+  /* ── possession AI. Invariant — someone is always MOVING with the ball. ── */
+  function runAI(now){
+    if(match.phase==='goal'){ celebrationAI(); return; }
+    if(match.phase==='break'){
+      players.forEach(p=>{ const b=pitchCoord(p.team,p.ri,false); p.tx=b.x; p.ty=b.y; p.spd=unit*0.10; });
+      return;
+    }
+
+    const urgency=goalUrgency(now);
+    const golden=now>=nextGoalDueAt;
+    if(golden && now>=nextGoalDueAt+(FAST?4000:25000) && (!nextForceAt||now>=nextForceAt)
+       && !(ball.inFlight&&ball.mode==='shot')){
+      forceGoalNow(now);
+      nextForceAt=now+(reduceMotion?18000:10000);
     }
 
     const SPD={gk:unit*0.15, defHold:unit*0.13, midOff:unit*0.18, attRun:unit*(0.235+urgency*0.04),
@@ -1724,7 +1656,7 @@ const FootballSim = (function(){
       players.forEach((p,i)=>{ if(p.role==='GK'||now<p.recoverUntil)return;
         const d=Math.hypot(p.x-ball.x,p.y-ball.y); if(d<nd[p.team]){nd[p.team]=d;near[p.team]=i;} });
       players.forEach((p,i)=>{
-        if(p.role==='GK'){ setGK(p); p.spd=SPD.gk; }
+        if(p.role==='GK'){ setGK(p,SPD); }
         else if(i===near[0]||i===near[1]){ p.tx=ball.x; p.ty=ball.y; p.spd=SPD.chase; }
         else { setOffBall(p, lastAttTeam, now); p.spd=p.team===lastAttTeam?attackingSpeed(p,SPD):SPD.defHold; }
       });
@@ -1737,8 +1669,7 @@ const FootballSim = (function(){
     const goal=goalPos(attTeam);
     const distGoal=Math.hypot(goal.x-holder.x,goal.y-holder.y);
     const progress=progressAlong(attTeam,holder.x,holder.y);
-    const kickoff=match.phase==='kickoff'&&now<match.phaseUntil;
-    if(!kickoff&&match.phase==='kickoff') match.phase='dribble';
+    const kickoff=match.phase==='kickoff';
     const bursting=holder.burstUntil&&now<holder.burstUntil;
 
     /* nearest defender free to challenge (skip GK, beaten and recovering ones) */
@@ -1750,8 +1681,7 @@ const FootballSim = (function(){
     });
     const underPressure=chDist<unit*.16;
 
-    /* carrier ALWAYS moves: a stride ahead toward goal, steered around the
-       challenger so it dribbles around pressure rather than into it. */
+    /* carrier ALWAYS moves: a stride ahead toward goal, steered around pressure */
     {
       const stride=unit*(kickoff?0.16:underPressure?0.19:0.26)+(bursting?unit*0.10:0);
       let laneNudge=((FORM[holder.ri][1]||.5)-.5)*unit*.05;
@@ -1762,15 +1692,15 @@ const FootballSim = (function(){
       }
       const pt=aheadPoint(attTeam,holder.x,holder.y,stride,laneNudge);
       holder.tx=pt.x; holder.ty=pt.y;
-      holder.spd=SPD.carrier*(bursting?1.18:1)*(kickoff?0.85:1);
+      holder.spd=SPD.carrier*(bursting?1.18:1)*(kickoff?0.85:1)*(golden?1.2:1);
     }
 
     /* everyone else's target */
     players.forEach((p,i)=>{
       if(i===ball.holderIdx) return;
       const isAtt=p.team===attTeam;
-      if(p.role==='GK'){ setGK(p); p.spd=SPD.gk; return; }
-      if(i===chIdx && !kickoff){ p.tx=holder.x; p.ty=holder.y; p.spd=SPD.press; return; }  /* close in to contest */
+      if(p.role==='GK'){ setGK(p,SPD); return; }
+      if(i===chIdx && !kickoff){ p.tx=holder.x; p.ty=holder.y; p.spd=SPD.press; return; }
       if(now<p.beatenUntil){ const b=aheadPoint(attTeam,holder.x,holder.y,-unit*0.14,0); p.tx=b.x; p.ty=b.y; p.spd=SPD.defHold; return; }
       setOffBall(p, attTeam, now); p.spd=isAtt?attackingSpeed(p,SPD):SPD.defHold;
     });
@@ -1781,9 +1711,9 @@ const FootballSim = (function(){
     if(chIdx>=0 && chDist<playerR*2.5+ballR && now>=(players[chIdx].nextTackleAt||0) && now-lastTurnover>250){
       const ch=players[chIdx];
       ch.nextTackleAt=now+TACKLE_CD_MS;
-      const carrierSpeed=holder.body?Math.hypot(holder.body.velocity.x,holder.body.velocity.y):0;
-      const winP=TACKLE_WIN+(carrierSpeed<STAND_VEL*3?0.2:0)-(bursting?0.2:0);
-      if(Math.random()<winP){ capture(chIdx,now); return; }   /* flip; capture drops the loser off */
+      const carrierSpeed=Math.hypot(holder.vx,holder.vy);
+      const winP=TACKLE_WIN+(carrierSpeed<unit*0.03?0.2:0)-(bursting?0.2:0);
+      if(Math.random()<winP){ capture(chIdx,now); return; }
       ch.beatenUntil=now+BEATEN_MS;    /* missed → defender backs off */
       holder.burstUntil=now+700;       /* carrier bursts past */
       return;
@@ -1791,11 +1721,12 @@ const FootballSim = (function(){
 
     /* ── shot: in the attacking third, within range; chance ramps with urgency ── */
     if(now>=holder.settleUntil && holder.role!=='GK'){
-      if(urgency>=1 && progress>0.42 && distGoal<unit*0.95){ shoot(holder,attTeam,now,true); return; }
+      if(golden && progress>0.45 && distGoal<unit*1.1){ shoot(holder,attTeam,now,true,true); return; }
+      if(urgency>=1 && progress>0.42 && distGoal<unit*0.95){ shoot(holder,attTeam,now,true,false); return; }
       const shotProg=holder.role==='FWD'?0.50:0.56+urgency*0.08;
       const shotDist=unit*(0.62+urgency*0.26);
       if(progress>shotProg && distGoal<shotDist && Math.random()<Math.max(0,urgency-0.2)*0.06){
-        shoot(holder,attTeam,now,urgency>0.6); return;
+        shoot(holder,attTeam,now,urgency>0.6,false); return;
       }
     }
 
@@ -1810,11 +1741,11 @@ const FootballSim = (function(){
           const prog=rx*ax+ry*ay, lateral=Math.abs(rx*(-ay)+ry*ax);
           const{dist:space}=nearestOpp(attTeam,tx,ty,false);
           const targetProg=progressAlong(attTeam,tx,ty);
-          let score=prog*1.25 + space*0.26 - lateral*0.50 + (targetProg-progress)*unit*.42;
-          if(p.role==='FWD') score+=unit*(0.10+urgency*0.14);
-          if(p.role==='MID'&&targetProg>progress+.04) score+=unit*(0.04+urgency*0.08);
-          if(prog<unit*.06) score-=underPressure?unit*.12:unit*.22;
-          return{i,score};
+          let sc=prog*1.25 + space*0.26 - lateral*0.50 + (targetProg-progress)*unit*.42;
+          if(p.role==='FWD') sc+=unit*(0.10+urgency*0.14);
+          if(p.role==='MID'&&targetProg>progress+.04) sc+=unit*(0.04+urgency*0.08);
+          if(prog<unit*.06) sc-=underPressure?unit*.12:unit*.22;
+          return{i,score:sc};
         })
         .sort((a,b)=>b.score-a.score);
       const best=cands[0];
@@ -1827,219 +1758,260 @@ const FootballSim = (function(){
     }
   }
 
-  /* ── steering separation: keep players from stacking on the same point ──
-     Players don't physically collide (velocities are hard-set each substep,
-     which would fight Matter's contact resolution and jitter). Instead we
-     spread their *targets* apart so two bodies never converge to one spot. */
-  function separate(){
-    if(!pr) return;
-    const sepR=playerR*2.3;                 /* desired min centre distance */
-    const sepR2=sepR*sepR;
-    const n=players.length;
-    for(let i=0;i<n;i++){ const p=players[i]; p._sepx=0; p._sepy=0; }
-    for(let i=0;i<n;i++){
-      const a=players[i]; if(!a.body) continue;
-      for(let j=i+1;j<n;j++){
-        const b=players[j]; if(!b.body) continue;
-        let dx=a.body.position.x-b.body.position.x;
-        let dy=a.body.position.y-b.body.position.y;
-        let d2=dx*dx+dy*dy;
-        if(d2>=sepR2) continue;
-        if(d2<1e-4){ const ang=Math.random()*6.283; dx=Math.cos(ang); dy=Math.sin(ang); d2=1; }
-        const d=Math.sqrt(d2)||0.001;
-        const overlap=(sepR-d)/sepR;        /* 0 (just touching) → 1 (coincident) */
-        const f=overlap*playerR*1.1;        /* push strength per partner */
-        const ux=dx/d, uy=dy/d;
-        a._sepx+=ux*f; a._sepy+=uy*f;
-        b._sepx-=ux*f; b._sepy-=uy*f;
-      }
-    }
-    /* whoever must actually touch the ball is exempt, so they never orbit it:
-       the carrier when held, else the single nearest player to a loose ball */
-    let ballGuard=ball.holderIdx;
-    if(ballGuard<0){
-      let bd=Infinity;
-      for(let i=0;i<n;i++){ const p=players[i]; if(!p.body) continue;
-        const d=Math.hypot(p.body.position.x-ball.x,p.body.position.y-ball.y);
-        if(d<bd){ bd=d; ballGuard=i; } }
-    }
-    const{px,py,pw,ph}=pr, cap=playerR*1.6;
-    for(let i=0;i<n;i++){
-      if(i===ballGuard) continue;
-      const p=players[i]; if(!p.body||p.tx==null) continue;
-      let sx=p._sepx, sy=p._sepy;
-      const sl=Math.hypot(sx,sy);
-      if(sl>cap){ sx=sx/sl*cap; sy=sy/sl*cap; }   /* clamp so it stays smooth */
-      p.tx=clamp(p.tx+sx, px+6, px+pw-6);
-      p.ty=clamp(p.ty+sy, py+6, py+ph-6);
-    }
-  }
-
-  /* ── hard player-vs-player resolution: positional de-overlap + bounce ──
-     Players' velocities are hard-set each substep, so Matter's own contact
-     solver can't separate them (it gets overwritten). We resolve manually:
-     never let two bodies overlap, and reflect the closing velocity so they
-     visibly bounce apart instead of stacking and flickering. */
-  function resolveCollisions(){
-    /* minD matches the rendered jersey ellipse (≈2.15·playerR tall) so bodies
-       never visually overlap, not just their physics circles. */
-    const n=players.length, minD=playerR*2.2, minD2=minD*minD, e=0.45;
-    const carrier=ball.holderIdx;
-    for(let iter=0;iter<2;iter++){           /* a couple passes settle multi-contacts */
-      for(let i=0;i<n;i++){
-        const a=players[i], ba=a.body; if(!ba) continue;
-        for(let j=i+1;j<n;j++){
-          const b=players[j], bb=b.body; if(!bb) continue;
-          let dx=bb.position.x-ba.position.x, dy=bb.position.y-ba.position.y;
-          let d2=dx*dx+dy*dy;
-          if(d2>=minD2){ continue; }
-          if(d2<1e-4){ const ang=Math.random()*6.283; dx=Math.cos(ang); dy=Math.sin(ang); d2=1; }
-          const d=Math.sqrt(d2)||0.001, nx=dx/d, ny=dy/d;
-          const overlap=minD-d;
-          /* the ball carrier holds its ground so the glued ball is never jostled;
-             two free players split the push, otherwise the free one yields fully. */
-          let wa=0.5, wb=0.5;
-          if(i===carrier){ wa=0; wb=1; } else if(j===carrier){ wa=1; wb=0; }
-          M.Body.setPosition(ba,{x:ba.position.x-nx*overlap*wa, y:ba.position.y-ny*overlap*wa});
-          M.Body.setPosition(bb,{x:bb.position.x+nx*overlap*wb, y:bb.position.y+ny*overlap*wb});
-          const va=ba.velocity, vb=bb.velocity;
-          const rvn=(vb.x-va.x)*nx+(vb.y-va.y)*ny;   /* closing speed along normal */
-          if(rvn<0 && i!==carrier && j!==carrier){    /* bounce free players; never the carrier */
-            const jimp=-(1+e)*rvn*0.5;
-            M.Body.setVelocity(ba,{x:va.x-nx*jimp, y:va.y-ny*jimp});
-            M.Body.setVelocity(bb,{x:vb.x+nx*jimp, y:vb.y+ny*jimp});
-          }
-        }
-      }
-    }
-  }
-
-  /* ── physics: drive players toward their AI targets each substep ── */
-  function applyVelocities(){
-    const stop=stopDist(), arrive=unit*0.055;
+  /* ── kinematics: steer each player toward its target ── */
+  function stepPlayers(dt,now){
+    const stop=Math.max(3.5,unit*0.016), arrive=unit*0.055;
     for(let i=0;i<players.length;i++){
-      const p=players[i], b=p.body; if(!b) continue;
-      let dx=p.tx-b.position.x, dy=p.ty-b.position.y;
+      const p=players[i];
+      const dx=p.tx-p.x, dy=p.ty-p.y;
       const d=Math.hypot(dx,dy);
-      if(d<1e-3){ M.Body.setVelocity(b,{x:0,y:0}); continue; }   /* target reached → avoid NaN */
-      /* the ball carrier is never frozen — it always keeps rolling toward its
-         (always-ahead) target, so the ball can't park between two players */
-      if(i!==ball.holderIdx && (d<stop || isIdle(b,p.tx,p.ty))){
-        M.Body.setVelocity(b,{x:0,y:0});
-        continue;
+      if(d<stop && i!==ball.holderIdx){
+        p.vx=p.vy=0;
+      }else if(d>1e-3){
+        let sp=p.spd||unit*0.11;
+        if(d<arrive) sp*=0.25+0.75*(d/arrive);
+        const ux=dx/d, uy=dy/d;
+        const ease=Math.min(1,dt*7);
+        p.vx+=(ux*sp-p.vx)*ease;
+        p.vy+=(uy*sp-p.vy)*ease;
       }
-      let s=p.spd||unit*0.11;
-      if(d<arrive) s*=(0.25+0.75*(d/arrive));
-      const desiredX=(dx/d)*s*FIXED, desiredY=(dy/d)*s*FIXED;
-      const ease=d<arrive?0.14:0.22;
-      M.Body.setVelocity(b,{
-        x:b.velocity.x+(desiredX-b.velocity.x)*ease,
-        y:b.velocity.y+(desiredY-b.velocity.y)*ease
-      });
-    }
-  }
-  function dampIdleBall(){
-    if(!ballBody||ball.holderIdx>=0) return;
-    const v=ballBody.velocity, vl=Math.hypot(v.x,v.y);
-    if(vl<STAND_VEL*1.4) M.Body.setVelocity(ballBody,{x:0,y:0});
-  }
-  /* glue the ball to the carrier (slightly ahead, matching velocity) */
-  function glueBall(){
-    if(ball.holderIdx<0||!ballBody) return;
-    const h=players[ball.holderIdx]; if(!h||!h.body) return;
-    const b=h.body; const vx=b.velocity.x, vy=b.velocity.y, vl=Math.hypot(vx,vy);
-    const idle=isIdle(b,h.tx,h.ty);
-    let dx,dy;
-    if(vl>STAND_VEL*1.8){ dx=vx/vl; dy=vy/vl; }
-    else { const g=goalPos(h.team); const gx=g.x-b.position.x, gy=g.y-b.position.y, gl=Math.hypot(gx,gy)||1; dx=gx/gl; dy=gy/gl; }
-    const faceEase=idle?0.06:0.14;
-    h._bdx+=(dx-h._bdx)*faceEase; h._bdy+=(dy-h._bdy)*faceEase;
-    const dl=Math.hypot(h._bdx,h._bdy)||1; dx=h._bdx/dl; dy=h._bdy/dl;
-    const off=playerR+ballR+1.5;
-    const tx=b.position.x+dx*off, ty=b.position.y+dy*off;
-    if(idle){
-      const bx=ballBody.position.x, by=ballBody.position.y;
-      M.Body.setPosition(ballBody,{x:bx+(tx-bx)*0.22,y:by+(ty-by)*0.22});
-      M.Body.setVelocity(ballBody,{x:0,y:0});
-    }else{
-      M.Body.setPosition(ballBody,{x:tx,y:ty});
-      M.Body.setVelocity(ballBody,{x:vx,y:vy});
+      p.x+=p.vx*dt; p.y+=p.vy*dt;
+      p.x=clamp(p.x,pr.px+6,pr.px+pr.pw-6);
+      p.y=clamp(p.y,pr.py+6,pr.py+pr.ph-6);
+      const vl=Math.hypot(p.vx,p.vy);
+      if(vl>unit*0.01){
+        const f=Math.min(1,dt*8);
+        p.fx+=(p.vx/vl-p.fx)*f; p.fy+=(p.vy/vl-p.fy)*f;
+        const fl=Math.hypot(p.fx,p.fy)||1; p.fx/=fl; p.fy/=fl;
+        p.stride+=vl*dt/(playerR*2.4);   /* run-cycle phase, in strides */
+      }
     }
   }
 
+  /* ── positional separation so players never stack (carrier holds ground) ── */
+  function separate(){
+    const minD=playerR*2.2, minD2=minD*minD, n=players.length;
+    for(let i=0;i<n;i++){
+      const a=players[i];
+      for(let j=i+1;j<n;j++){
+        const b=players[j];
+        let dx=b.x-a.x, dy=b.y-a.y, d2=dx*dx+dy*dy;
+        if(d2>=minD2) continue;
+        if(d2<1e-4){ const an=Math.random()*6.283; dx=Math.cos(an); dy=Math.sin(an); d2=1; }
+        const d=Math.sqrt(d2), ux=dx/d, uy=dy/d, ov=(minD-d)/2;
+        let wa=1, wb=1;
+        if(i===ball.holderIdx){ wa=0; wb=2; } else if(j===ball.holderIdx){ wa=2; wb=0; }
+        a.x-=ux*ov*wa; a.y-=uy*ov*wa;
+        b.x+=ux*ov*wb; b.y+=uy*ov*wb;
+      }
+    }
+  }
+
+  /* ── ball: glued to the carrier, or free-rolling with drag + goal detection ── */
+  function glueBall(dt){
+    const h=players[ball.holderIdx]; if(!h) return;
+    const off=playerR+ballR+1.5;
+    const tx=h.x+h.fx*off, ty=h.y+h.fy*off;
+    const e=Math.min(1,dt*14);
+    ball.x+=(tx-ball.x)*e; ball.y+=(ty-ball.y)*e;
+    ball.vx=h.vx; ball.vy=h.vy;
+  }
+  function detectGoal(now){
+    const{px,py,pw,ph,portrait}=pr;
+    if(!portrait){
+      const cyM=py+ph/2, mh=ph*0.108, inMouth=Math.abs(ball.y-cyM)<mh/2;
+      if(inMouth && ball.x<=px+ballR){ onGoal(0,now); return true; }
+      if(inMouth && ball.x>=px+pw-ballR){ onGoal(1,now); return true; }
+    } else {
+      const cxM=px+pw/2, mw=pw*0.108, inMouth=Math.abs(ball.x-cxM)<mw/2;
+      if(inMouth && ball.y<=py+ballR){ onGoal(0,now); return true; }
+      if(inMouth && ball.y>=py+ph-ballR){ onGoal(1,now); return true; }
+    }
+    return false;
+  }
+  function bounceBounds(){
+    const{px,py,pw,ph}=pr, e=0.5;
+    if(ball.x<px+ballR){ ball.x=px+ballR; ball.vx=Math.abs(ball.vx)*e; }
+    if(ball.x>px+pw-ballR){ ball.x=px+pw-ballR; ball.vx=-Math.abs(ball.vx)*e; }
+    if(ball.y<py+ballR){ ball.y=py+ballR; ball.vy=Math.abs(ball.vy)*e; }
+    if(ball.y>py+ph-ballR){ ball.y=py+ph-ballR; ball.vy=-Math.abs(ball.vy)*e; }
+  }
+  function captureCheck(now){
+    if(ball.mode==='shot'&&ball.unsavable) return;   /* forced goal passes everyone */
+    let cap=-1, bd=Infinity;
+    const baseR=playerR+ballR+unit*0.012;
+    for(let i=0;i<players.length;i++){
+      if(now<ball.kickCdUntil && i===ball.lastKickerIdx) continue;
+      if(now<players[i].recoverUntil) continue;
+      const p=players[i];
+      const reach=baseR+(p.role==='GK'?unit*0.035:0);
+      const d=Math.hypot(p.x-ball.x,p.y-ball.y);
+      if(d<reach && d<bd){ bd=d; cap=i; }
+    }
+    if(cap>=0) capture(cap,now);
+  }
+  function stepBall(dt,now){
+    if(match.phase==='goal'||match.phase==='break') return;   /* ball at rest */
+    if(ball.holderIdx>=0){ glueBall(dt); return; }
+    ball.x+=ball.vx*dt; ball.y+=ball.vy*dt;
+    const dec=Math.exp(-BALL_K*dt);
+    ball.vx*=dec; ball.vy*=dec;
+    if(Math.hypot(ball.vx,ball.vy)<unit*0.02){
+      ball.vx=ball.vy=0; ball.inFlight=false; ball.unsavable=false;
+    }
+    if(detectGoal(now)) return;
+    bounceBounds();
+    captureCheck(now);
+    stallWatch(now);
+  }
+
+  /* ── single safety backstop: ball parked in one zone too long → force clear ── */
+  let stallX=null, stallY=null, stallSince=0;
+  function stallWatch(now){
+    if(match.phase!=='play') return;
+    if(stallX==null || Math.hypot(ball.x-stallX,ball.y-stallY)>unit*0.12){
+      stallX=ball.x; stallY=ball.y; stallSince=now; return;
+    }
+    if(now-stallSince<STALL_MS) return;
+    if(ball.holderIdx<0){
+      let cap=-1,bd=Infinity;
+      players.forEach((p,i)=>{ const d=Math.hypot(p.x-ball.x,p.y-ball.y); if(d<bd){bd=d;cap=i;} });
+      if(cap>=0) capture(cap,now);
+    }
+    forceCarrierKick(now);
+    stallX=ball.x; stallY=ball.y; stallSince=now;
+  }
+  function forceCarrierKick(now){
+    const holder=players[ball.holderIdx];
+    if(!holder) return;
+    const attTeam=holder.team, myProg=progressAlong(attTeam,holder.x,holder.y);
+    let best=-1,bestScore=-Infinity;
+    players.forEach((p,i)=>{
+      if(i===ball.holderIdx||p.team!==attTeam||p.role==='GK') return;
+      const tp=progressAlong(attTeam,p.x,p.y);
+      const{dist:space}=nearestOpp(attTeam,p.x,p.y,false);
+      const sc=(tp-myProg)*unit + space*0.3;
+      if(sc>bestScore){ bestScore=sc; best=i; }
+    });
+    if(best>=0) passTo(holder,players[best],best,now);
+    else shoot(holder,attTeam,now,false,false);
+  }
+
+  /* ── kicks ── */
   function passTo(holder,target,idx,now){
     const prev=ball.holderIdx;
-    const bx=ballBody.position.x, by=ballBody.position.y;
     const lead=clampPitchPt({x:target.tx||target.x,y:target.ty||target.y},playerR+2);
-    let dx=lead.x-bx, dy=lead.y-by; const d=Math.hypot(dx,dy)||1;
-    let v0=d*BALL_K*1.05; v0=Math.max(unit*0.65, Math.min(unit*1.85, v0));
-    M.Body.setVelocity(ballBody,{x:(dx/d)*v0*FIXED, y:(dy/d)*v0*FIXED});
+    let dx=lead.x-ball.x, dy=lead.y-ball.y; const d=Math.hypot(dx,dy)||1;
+    let v0=clamp(d*BALL_K*1.05, unit*0.65, unit*1.85);
+    ball.vx=(dx/d)*v0; ball.vy=(dy/d)*v0;
     target.tx=lead.x; target.ty=lead.y; target.spd=Math.max(target.spd||0,unit*.24);
-    players.forEach(p=>p.hasBall=false);
-    ball.holderIdx=-1; ball.inFlight=true; ball.mode='pass';
+    ball.holderIdx=-1; ball.inFlight=true; ball.mode='pass'; ball.unsavable=false;
     ball.targetIdx=idx; ball.lastKickerIdx=prev; ball.kickCdUntil=now+260;
-    ball._standRx=ball._standRy=null;
-    match.phase='pass'; match.phaseUntil=now+900; match.passCount++;
+    match.passCount++;
   }
-  function shoot(shooter,team,now,accurate){
+  function shoot(shooter,team,now,accurate,unsavable){
     const goal=goalPos(team);
     const spread=unit*((accurate?0.025:0.08)+(accurate?0:Math.random()*0.04));
     const a=(Math.random()-0.5)*2*spread;
     let tx=goal.x, ty=goal.y; if(pr.portrait) tx+=a; else ty+=a;
     const prev=ball.holderIdx;
-    const bx=ballBody.position.x, by=ballBody.position.y;
-    let dx=tx-bx, dy=ty-by; const d=Math.hypot(dx,dy)||1;
-    let v0=d*BALL_K*1.25; v0=Math.max(unit*1.05, Math.min(unit*2.35, v0));
-    M.Body.setVelocity(ballBody,{x:(dx/d)*v0*FIXED, y:(dy/d)*v0*FIXED});
-    players.forEach(p=>p.hasBall=false);
+    let dx=tx-ball.x, dy=ty-ball.y; const d=Math.hypot(dx,dy)||1;
+    let v0=clamp(d*BALL_K*1.25, unit*1.05, unit*2.35);
+    ball.vx=(dx/d)*v0; ball.vy=(dy/d)*v0;
     ball.holderIdx=-1; ball.inFlight=true; ball.mode='shot'; ball.shooterTeam=team;
+    ball.unsavable=!!unsavable;
     ball.targetIdx=-1; ball.lastKickerIdx=prev; ball.kickCdUntil=now+260;
-    ball._standRx=ball._standRy=null;
-    match.phase='shot'; match.phaseUntil=now+1600;
   }
   function capture(i,now){
     const prevHolder=ball.holderIdx;
-    players.forEach(p=>p.hasBall=false);
-    const p=players[i]; p.hasBall=true;
-    /* turnover: the beaten carrier drops off and can't challenge for a beat,
-       so it can't immediately tackle the ball back (no ping-pong) */
+    const p=players[i];
     if(prevHolder>=0&&players[prevHolder]&&players[prevHolder].team!==p.team){
-      players[prevHolder].recoverUntil=now+RECOVER_MS;
+      players[prevHolder].recoverUntil=now+RECOVER_MS;   /* no instant win-back ping-pong */
     }
     const continued=p.team===lastAttTeam;
     ball.holderIdx=i; ball.inFlight=false; ball.mode='pass'; ball.targetIdx=-1;
-    ball._standRx=ball._standRy=null;
-    if(ballBody) M.Body.setVelocity(ballBody,{x:0,y:0});
+    ball.unsavable=false; ball.vx=ball.vy=0;
     if(!continued) match.passCount=0;
-    match.phase='dribble'; match.phaseUntil=now+1200;
     p.gotBallAt=now;
     p.settleUntil=now+(p.role==='GK'?600:SETTLE_MS);
     p.burstUntil=0; p.beatenUntil=0; p.recoverUntil=0;
     lastTurnover=now;
   }
 
-  /* team `conceding` let one in → the other team scored */
+  /* ── goal! ── */
   function onGoal(conceding,now){
-    score[1-conceding]++; renderScoreboard();
+    const team=1-conceding;
+    score[team]++; renderScoreboard();
+    const sb=document.getElementById('scoreboard');
+    if(sb){ sb.classList.remove('goal-pulse'); void sb.offsetWidth; sb.classList.add('goal-pulse');
+            setTimeout(()=>sb.classList.remove('goal-pulse'),1600); }
+    let scorer=ball.lastKickerIdx;
+    if(scorer<0||!players[scorer]||players[scorer].team!==team)
+      scorer=players.findIndex(p=>p.team===team&&p.role==='FWD');
+    celeb={team, scorerIdx:scorer};
+    spawnConfetti(team,now);
+    /* rest the ball just inside the net */
+    const g=goalPos(team);
+    ball.x=g.x; ball.y=g.y; ball.vx=ball.vy=0;
+    ball.holderIdx=-1; ball.inFlight=false; ball.unsavable=false;
+    match.phase='goal'; match.phaseUntil=now+(reduceMotion?1400:CELEBRATE_MS);
+    match.concededBy=conceding;
     scheduleNextGoal(now);
-    resetKickoff(conceding,now);
+    trailPts.length=0;
   }
-
-  function detectGoal(bx,by,now){
-    const{px,py,pw,ph,portrait}=pr;
-    if(!portrait){
-      const cyM=py+ph/2, mh=ph*0.108, inMouth=Math.abs(by-cyM)<mh/2;
-      if(inMouth && bx<=px+ballR){ onGoal(0,now); return true; }
-      if(inMouth && bx>=px+pw-ballR){ onGoal(1,now); return true; }
-    } else {
-      const cxM=px+pw/2, mw=pw*0.108, inMouth=Math.abs(bx-cxM)<mw/2;
-      if(inMouth && by<=py+ballR){ onGoal(0,now); return true; }
-      if(inMouth && by>=py+ph-ballR){ onGoal(1,now); return true; }
+  function spawnConfetti(team,now){
+    if(reduceMotion) return;
+    const g=goalPos(team);
+    const cols=[team===0?teamColor0:teamColor1,'#ffffff',team===0?gk0:gk1];
+    for(let k=0;k<70;k++){
+      const an=Math.random()*Math.PI*2, sp=unit*(0.25+Math.random()*0.85);
+      confetti.push({x:g.x,y:g.y,vx:Math.cos(an)*sp,vy:Math.sin(an)*sp,
+        life:0.9+Math.random()*0.7,age:0,c:cols[k%cols.length],r:Math.max(1.4,ballR*0.5)*(0.6+Math.random()*0.8)});
     }
-    return false;
+  }
+  function updateConfetti(dt){
+    for(let i=confetti.length-1;i>=0;i--){
+      const c=confetti[i];
+      c.age+=dt;
+      if(c.age>=c.life){ confetti.splice(i,1); continue; }
+      c.x+=c.vx*dt; c.y+=c.vy*dt;
+      c.vx*=Math.exp(-2.2*dt); c.vy=c.vy*Math.exp(-2.2*dt)+unit*0.35*dt;
+    }
   }
 
-  /* ── scoreboard DOM ── */
+  /* ── kickoff reset ── */
+  function resetKickoff(team,now){
+    kickoffTeam=team; lastTurnover=now; lastAttTeam=team;
+    match.phase='kickoff'; match.phaseUntil=now+(reduceMotion?1300:KICKOFF_MS); match.passCount=0;
+    players.forEach(p=>{
+      const base=pitchCoord(p.team,p.ri,false);
+      p.x=base.x; p.y=base.y; p.tx=base.x; p.ty=base.y;
+      p.vx=p.vy=0; p.stride=0;
+      p.wanderAt=now+Math.random()*2500;
+      p.recoverUntil=0; p.beatenUntil=0; p.burstUntil=0; p.nextTackleAt=0;
+    });
+    const cx=pr.px+pr.pw/2, cy=pr.py+pr.ph/2;
+    const idx=players.findIndex(p=>p.team===team&&p.ri===10);
+    const fwd=players[idx];
+    if(fwd){
+      fwd.x=cx; fwd.y=cy; fwd.tx=cx; fwd.ty=cy;
+      fwd.gotBallAt=now; fwd.settleUntil=now+SETTLE_MS;
+    }
+    ball.x=cx; ball.y=cy; ball.vx=ball.vy=0;
+    ball.holderIdx=idx; ball.inFlight=false; ball.mode='pass'; ball.unsavable=false;
+    ball.targetIdx=-1; ball.shooterTeam=team; ball.kickCdUntil=now; ball.lastKickerIdx=-1;
+    trailPts.length=0; trailAt=0;
+    stallX=null;
+  }
+
+  /* ── scoreboard + clock ── */
+  function clockMinute(now){
+    if(!match.halfStartAt) return 1;
+    if(match.phase==='break') return match.half===1?45:90;
+    const el=clamp(now-match.halfStartAt,0,HALF_REAL_MS);
+    const m=Math.min(45,Math.floor(el/HALF_REAL_MS*45)+1);
+    return match.half===1?m:45+m;
+  }
   function renderScoreboard(){
     const d0=document.getElementById('sbDot0'), d1=document.getElementById('sbDot1');
     const n0=document.getElementById('sbNum0'), n1=document.getElementById('sbNum1');
@@ -2047,201 +2019,130 @@ const FootballSim = (function(){
     if(d1) d1.style.background=teamColor1;
     if(n0) n0.textContent=score[0];
     if(n1) n1.textContent=score[1];
+    updateClockText(lastNow||performance.now());
+  }
+  function updateClockText(now){
+    const el=document.getElementById('sbClock');
+    if(el) el.textContent=clockMinute(now)+"'";
   }
   function resetScore(){ score=[0,0]; renderScoreboard(); }
-  /* reset the score once an hour */
-  setInterval(resetScore, 3600000);
 
-  /* after each physics substep: goals + ball capture (incl. GK saves) */
-  function postStep(now){
-    if(ball.holderIdx>=0||!ballBody) return;
-    const bx=ballBody.position.x, by=ballBody.position.y;
-    if(detectGoal(bx,by,now)) return;
-    let cap=-1, bd=Infinity;
-    const baseR=playerR+ballR+unit*0.012;
-    for(let i=0;i<players.length;i++){
-      if(now<ball.kickCdUntil && i===ball.lastKickerIdx) continue;
-      if(now<players[i].recoverUntil) continue;   /* a just-beaten player can't instantly reclaim */
-      const p=players[i]; if(!p.body) continue;
-      const reach=baseR+(p.role==='GK'?unit*0.035:0);
-      const d=Math.hypot(p.body.position.x-bx, p.body.position.y-by);
-      if(d<reach && d<bd){ bd=d; cap=i; }
-    }
-    if(cap>=0) capture(cap,now);
-  }
-
-  /* ── restart from kickoff for the conceding team ── */
-  function resetKickoff(team,now){
-    kickoffTeam=team; lastTurnover=now; lastAttTeam=team;
-    match={phase:'kickoff', phaseUntil:now+(reduceMotion?1300:900), passCount:0};
-    players.forEach(p=>{
-      const base=pitchCoord(p.team,p.ri,false);
-      if(p.body){ M.Body.setPosition(p.body,{x:base.x,y:base.y}); M.Body.setVelocity(p.body,{x:0,y:0}); }
-      p.x=base.x; p.y=base.y; p.rx=base.x; p.ry=base.y; p.tx=base.x; p.ty=base.y;
-      p._standRx=p._standRy=null;
-      p.hasBall=false; p.wanderAt=now+Math.random()*2500;
-      p.recoverUntil=0; p.beatenUntil=0; p.burstUntil=0; p.nextTackleAt=0;   /* clear duel state */
-    });
-    const cx=pr.px+pr.pw/2, cy=pr.py+pr.ph/2;
-    const idx=players.findIndex(p=>p.team===team&&p.ri===10);
-    const fwd=players[idx];
-    if(fwd){
-      if(fwd.body){ M.Body.setPosition(fwd.body,{x:cx,y:cy}); M.Body.setVelocity(fwd.body,{x:0,y:0}); }
-      fwd.x=cx; fwd.y=cy; fwd.rx=cx; fwd.ry=cy; fwd.tx=cx; fwd.ty=cy; fwd.hasBall=true;
-      fwd.gotBallAt=now; fwd.settleUntil=now+SETTLE_MS;   /* drives forward at once; no idle start */
-    }
-    if(ballBody){ M.Body.setPosition(ballBody,{x:cx,y:cy}); M.Body.setVelocity(ballBody,{x:0,y:0}); }
-    ball.x=cx; ball.y=cy; ball.rx=cx; ball.ry=cy; ball._standRx=ball._standRy=null; ball.holderIdx=idx; ball.inFlight=false; ball.mode='pass';
-    ball.targetIdx=-1; ball.shooterTeam=team; ball.kickCdUntil=now; ball.lastKickerIdx=-1;
-    trailPts.length=0; trailAt=0;
-  }
-
-  /* ── single safety backstop ──
-     The possession model keeps the ball moving, so this should rarely fire. It
-     only triggers if the ball somehow parks inside a ~unit*0.12 zone for
-     BACKSTOP_MS (3s) — the anchor resets whenever the ball genuinely leaves the
-     zone, so ordinary dribbling/passing never trips it. Then it force-clears. */
-  let stallX=null, stallY=null, stallSince=0;
-  function ballBackstop(now){
-    if(!ballBody) return;
-    if(stallX==null || Math.hypot(ball.x-stallX,ball.y-stallY)>unit*0.12){
-      stallX=ball.x; stallY=ball.y; stallSince=now; return;
-    }
-    if(now-stallSince<BACKSTOP_MS) return;
-    if(ball.holderIdx<0) forceLooseCapture(now);   /* give the loose ball an owner… */
-    forceCarrierKick(now);                          /* …then hoof/pass it clear of the zone at once */
-    stallX=ball.x; stallY=ball.y; stallSince=now;
-  }
-  /* held too long → pass to the most advanced open team-mate, else clear */
-  function forceCarrierKick(now){
-    const holder=players[ball.holderIdx];
-    if(!holder) return;
-    const attTeam=holder.team, myProg=progressAlong(attTeam,holder.x,holder.y);
-    let best=-1,bestScore=-Infinity;
-    players.forEach((p,i)=>{
-      if(i===ball.holderIdx||p.team!==attTeam||p.role==='GK'||!p.body) return;
-      const tp=progressAlong(attTeam,p.x,p.y);
-      const{dist:space}=nearestOpp(attTeam,p.x,p.y,false);
-      const sc=(tp-myProg)*unit + space*0.3;
-      if(sc>bestScore){ bestScore=sc; best=i; }
-    });
-    if(best>=0) passTo(holder,players[best],best,now);
-    else shoot(holder,attTeam,now,false);     /* no outlet → hoof it upfield */
-  }
-  /* loose ball lingering → hand it to the nearest player so play never freezes */
-  function forceLooseCapture(now){
-    const bx=ballBody.position.x, by=ballBody.position.y;
-    let cap=-1,bd=Infinity;
-    for(let i=0;i<players.length;i++){
-      const p=players[i]; if(!p.body) continue;
-      const d=Math.hypot(p.body.position.x-bx,p.body.position.y-by);
-      if(d<bd){ bd=d; cap=i; }
-    }
-    if(cap>=0) capture(cap,now);
-  }
-
-  /* ── public: step physics + AI, update positions ── */
+  /* ── public: step everything ── */
   function update(now,pitchRect){
     if(!pitchRect) return;
     layout(pitchRect);
-    if(!engine||players.length<22||!ballBody) return;
-    syncFromBodies();
-    let dt=lastNow?(now-lastNow)/1000:FIXED;
-    if(dt>0.08) dt=0.08;
+    if(players.length<22) return;
+    let dt=lastNow?(now-lastNow)/1000:1/60;
     lastNow=now;
+    if(dt>0.05) dt=0.05;
+    if(dt<=0) return;
+    tickMatch(now);
     runAI(now);
-    ballBackstop(now);  /* last-resort: force the ball out if it parks in one zone for 3s */
-    separate();        /* spread targets so players never stack / jitter together */
-    acc+=dt;
-    let steps=0; const maxSteps=reduceMotion?2:4;
-    while(acc>=FIXED && steps<maxSteps){
-      applyVelocities();
-      glueBall();
-      M.Engine.update(engine, FIXED*1000);
-      resolveCollisions();   /* hard de-overlap + bounce so players never stack/flicker */
-      dampIdleBall();
-      postStep(now);
-      acc-=FIXED; steps++;
-    }
-    if(acc>FIXED*4) acc=FIXED*4;
-    syncFromBodies();
+    stepPlayers(dt,now);
+    separate();
+    stepBall(dt,now);
+    updateConfetti(dt);
+    if(now-clockTxtAt>1000){ clockTxtAt=now; updateClockText(now); }
   }
 
-  /* players + ball are rendered by Phaser; the stadium draw call is a no-op
-     (kept so the existing call site in the frame loop doesn't error) */
-  function draw(ctx){ /* rendering handled by the Phaser overlay */ }
-
-  function drawGoals(){
+  /* ── rendering (into the Stadium ctx, already camera-transformed) ── */
+  function drawGoals(ctx){
     const{px,py,pw,ph,portrait}=pr;
-    const Lx=px-offX, Ty=py-offY;          /* pitch top-left in canvas-local coords */
     const postR=Math.max(2.5, ballR*0.9);
-    const depth=Math.max(8, margin*0.7);
-    const drawPost=(x,y)=>{ gfx.fillStyle(0xffffff,0.95); gfx.fillCircle(x,y,postR); };
+    const depth=Math.max(8, unit*0.035);
+    const post=(x,y)=>{ ctx.fillStyle='rgba(255,255,255,.95)'; ctx.beginPath(); ctx.arc(x,y,postR,0,6.284); ctx.fill(); };
     const net=(x,y,w,h)=>{
-      gfx.fillStyle(0xffffff,0.06); gfx.fillRect(x,y,w,h);
-      gfx.lineStyle(1,0xffffff,0.22);
+      ctx.fillStyle='rgba(255,255,255,.06)'; ctx.fillRect(x,y,w,h);
+      ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.lineWidth=1;
       const sx=Math.max(4,w/4), sy=Math.max(4,h/5);
-      for(let xx=x;xx<=x+w+0.1;xx+=sx) gfx.lineBetween(xx,y,xx,y+h);
-      for(let yy=y;yy<=y+h+0.1;yy+=sy) gfx.lineBetween(x,yy,x+w,yy);
+      ctx.beginPath();
+      for(let xx=x;xx<=x+w+0.1;xx+=sx){ ctx.moveTo(xx,y); ctx.lineTo(xx,y+h); }
+      for(let yy=y;yy<=y+h+0.1;yy+=sy){ ctx.moveTo(x,yy); ctx.lineTo(x+w,yy); }
+      ctx.stroke();
     };
     if(!portrait){
-      const cyM=Ty+ph/2, mh=ph*0.108, top=cyM-mh/2;
-      net(Lx-depth, top, depth, mh); net(Lx+pw, top, depth, mh);
-      drawPost(Lx,top);drawPost(Lx,top+mh);drawPost(Lx+pw,top);drawPost(Lx+pw,top+mh);
+      const cyM=py+ph/2, mh=ph*0.108, top=cyM-mh/2;
+      net(px-depth, top, depth, mh); net(px+pw, top, depth, mh);
+      post(px,top);post(px,top+mh);post(px+pw,top);post(px+pw,top+mh);
     } else {
-      const cxM=Lx+pw/2, mw=pw*0.108, left=cxM-mw/2;
-      net(left, Ty-depth, mw, depth); net(left, Ty+ph, mw, depth);
-      drawPost(left,Ty);drawPost(left+mw,Ty);drawPost(left,Ty+ph);drawPost(left+mw,Ty+ph);
+      const cxM=px+pw/2, mw=pw*0.108, left=cxM-mw/2;
+      net(left, py-depth, mw, depth); net(left, py+ph, mw, depth);
+      post(left,py);post(left+mw,py);post(left,py+ph);post(left+mw,py+ph);
     }
   }
-
-  /* ── Phaser scene render (reads shared physics state) ── */
-  function drawScene(){
-    if(!gfx) return;
-    gfx.clear();
-    if(!ballBody||players.length<22) return;
-    const ox=offX, oy=offY, t=performance.now();
-
-    drawGoals();
-
-    /* player shadows */
-    gfx.fillStyle(0x000000,0.20);
-    players.forEach(p=>{ const x=(p.rx||p.x)-ox, y=(p.ry||p.y)-oy; gfx.fillEllipse(x, y+playerR*0.7, playerR*1.9, playerR*1.0); });
-
+  function drawPlayer(ctx,p,i){
+    const kitHex=p.role==='GK'?(p.team===0?gk0:gk1):(p.team===0?teamColor0:teamColor1);
+    const moving=Math.hypot(p.vx,p.vy)>unit*0.02;
+    /* legs: alternate stride along facing when moving */
+    const lx=-p.fy, ly=p.fx;
+    const sw=Math.sin(p.stride*Math.PI*2), amp=moving?playerR*0.40:0;
+    const legR=Math.max(1.5,playerR*0.28);
+    ctx.fillStyle=shade(kitHex,0.40);
+    ctx.beginPath();
+    ctx.arc(p.x+lx*playerR*0.42+p.fx*sw*amp, p.y+ly*playerR*0.42+p.fy*sw*amp+playerR*0.72, legR,0,6.284);
+    ctx.arc(p.x-lx*playerR*0.42-p.fx*sw*amp, p.y-ly*playerR*0.42-p.fy*sw*amp+playerR*0.72, legR,0,6.284);
+    ctx.fill();
+    /* carrier halo */
+    if(i===ball.holderIdx){
+      ctx.fillStyle='rgba(255,255,255,.14)';
+      ctx.beginPath(); ctx.arc(p.x,p.y,playerR*1.75,0,6.284); ctx.fill();
+    }
+    /* jersey, slightly leaning into the run */
+    const jx=p.x+p.fx*playerR*0.10, jy=p.y+p.fy*playerR*0.10;
+    ctx.fillStyle=kitHex;
+    ctx.beginPath(); ctx.ellipse(jx,jy,playerR*0.90,playerR*1.07,0,0,6.284); ctx.fill();
+    ctx.strokeStyle=shade(kitHex,0.55); ctx.lineWidth=Math.max(1,playerR*0.16);
+    ctx.stroke();
+    /* head + hair */
+    const hx=p.x+p.fx*playerR*0.16, hy=p.y-playerR*0.55;
+    ctx.fillStyle='#f2c9a0';
+    ctx.beginPath(); ctx.arc(hx,hy,playerR*0.50,0,6.284); ctx.fill();
+    ctx.fillStyle=p.hair;
+    ctx.beginPath(); ctx.arc(hx-p.fx*playerR*0.14,hy-playerR*0.10,playerR*0.42,0,6.284); ctx.fill();
+    ctx.fillStyle='#f2c9a0';
+    ctx.beginPath(); ctx.arc(hx+p.fx*playerR*0.10,hy+playerR*0.06,playerR*0.36,0,6.284); ctx.fill();
+  }
+  function draw(ctx){
+    if(!pr||players.length<22) return;
+    const t=performance.now();
+    drawGoals(ctx);
+    /* shadows */
+    ctx.fillStyle='rgba(0,0,0,.20)';
+    ctx.beginPath();
+    players.forEach(p=>{ ctx.moveTo(p.x+playerR*0.95,p.y+playerR*0.7); ctx.ellipse(p.x,p.y+playerR*0.7,playerR*0.95,playerR*0.5,0,0,6.284); });
+    ctx.fill();
     /* ball shadow + pseudo-height on fast kicks */
-    const bspeed=Math.hypot(ballBody.velocity.x,ballBody.velocity.y)/FIXED;
-    let lift = (reduceMotion||ball.holderIdx>=0)?0:Math.max(0,Math.min(1,(bspeed-unit*1.2)/(unit*2.2)))*0.55;
-    const bx=(ball.rx||ball.x)-ox, by=(ball.ry||ball.y)-oy;
-    gfx.fillStyle(0x000000,0.22);
-    gfx.fillEllipse(bx+lift*5, by+ballR*1.1+lift*4, ballR*(2.0+lift*1.2), ballR*(1.2+lift*0.6));
-
-    /* players */
-    players.forEach((p,i)=>{
-      const x=(p.rx||p.x)-ox, y=(p.ry||p.y)-oy;
-      const kit=p.role==='GK'?hexNum(p.team===0?gk0:gk1):hexNum(p.team===0?teamColor0:teamColor1);
-      gfx.fillStyle(kit,1);
-      gfx.fillEllipse(x,y, playerR*1.8, playerR*2.15);                              /* jersey */
-      gfx.lineStyle(Math.max(1,playerR*0.16), darkenNum(kit,0.55),1);
-      gfx.strokeEllipse(x,y, playerR*1.8, playerR*2.15);
-      gfx.fillStyle(0xf2c9a0,1); gfx.fillCircle(x, y-playerR*0.55, playerR*0.5);    /* head */
-      gfx.lineStyle(Math.max(0.8,playerR*0.10), 0x8a5a3a,0.6);
-      gfx.strokeCircle(x, y-playerR*0.55, playerR*0.5);
-    });
-
-    /* ball trail */
-    if(!reduceMotion && ball.holderIdx<0){
-      if(t-trailAt>55 && (!trailPts.length||Math.hypot(trailPts[trailPts.length-1].x-bx,trailPts[trailPts.length-1].y-by)>ballR*1.2)){
-        trailPts.push({x:bx,y:by}); if(trailPts.length>8) trailPts.shift(); trailAt=t;
+    const bspeed=Math.hypot(ball.vx,ball.vy);
+    const lift=(reduceMotion||ball.holderIdx>=0)?0:Math.max(0,Math.min(1,(bspeed-unit*1.2)/(unit*2.2)))*0.55;
+    ctx.fillStyle='rgba(0,0,0,.22)';
+    ctx.beginPath();
+    ctx.ellipse(ball.x+lift*5, ball.y+ballR*1.1+lift*4, ballR*(1.0+lift*0.6), ballR*(0.6+lift*0.3),0,0,6.284);
+    ctx.fill();
+    /* players, far-to-near for depth */
+    players.map((p,i)=>({p,i})).sort((a,b)=>a.p.y-b.p.y).forEach(({p,i})=>drawPlayer(ctx,p,i));
+    /* ball trail while in flight */
+    if(!reduceMotion && ball.holderIdx<0 && ball.inFlight){
+      if(t-trailAt>55 && (!trailPts.length||Math.hypot(trailPts[trailPts.length-1].x-ball.x,trailPts[trailPts.length-1].y-ball.y)>ballR*1.2)){
+        trailPts.push({x:ball.x,y:ball.y}); if(trailPts.length>8) trailPts.shift(); trailAt=t;
       }
-      for(let i=0;i<trailPts.length;i++){ const a=(i/trailPts.length)*0.30, rr=ballR*(0.4+0.5*i/trailPts.length);
-        gfx.fillStyle(0xffffff,a); gfx.fillCircle(trailPts[i].x, trailPts[i].y-lift*9, rr); }
+      for(let i=0;i<trailPts.length;i++){
+        ctx.fillStyle=`rgba(255,255,255,${(i/trailPts.length)*0.30})`;
+        ctx.beginPath(); ctx.arc(trailPts[i].x,trailPts[i].y-lift*9,ballR*(0.4+0.5*i/trailPts.length),0,6.284); ctx.fill();
+      }
     } else { trailPts.length=0; trailAt=0; }
-
     /* ball */
-    const byL=by-lift*9;
-    gfx.fillStyle(0xffffff,1); gfx.fillCircle(bx,byL,ballR);
-    gfx.lineStyle(Math.max(0.8,ballR*0.22),0x333333,0.55); gfx.strokeCircle(bx,byL,ballR);
-    gfx.fillStyle(0x222222,0.8); gfx.fillCircle(bx,byL,ballR*0.26);
+    const byL=ball.y-lift*9;
+    ctx.fillStyle='#ffffff'; ctx.beginPath(); ctx.arc(ball.x,byL,ballR,0,6.284); ctx.fill();
+    ctx.strokeStyle='rgba(51,51,51,.55)'; ctx.lineWidth=Math.max(0.8,ballR*0.22);
+    ctx.beginPath(); ctx.arc(ball.x,byL,ballR,0,6.284); ctx.stroke();
+    ctx.fillStyle='rgba(34,34,34,.8)'; ctx.beginPath(); ctx.arc(ball.x,byL,ballR*0.26,0,6.284); ctx.fill();
+    /* confetti */
+    confetti.forEach(c=>{
+      ctx.globalAlpha=Math.max(0,1-c.age/c.life);
+      ctx.fillStyle=c.c;
+      ctx.fillRect(c.x-c.r/2,c.y-c.r/2,c.r,c.r);
+    });
+    ctx.globalAlpha=1;
   }
 
   function setTeamColors(c0,c1){
