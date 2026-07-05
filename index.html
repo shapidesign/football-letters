@@ -2452,7 +2452,7 @@ async function joinWall(){
     broadcastOnline();
     $('#ui').classList.add('gone');
     setBodyScroll(false);
-    setTimeout(()=>{showStadium();Stadium.relayout(true);playGoalSound();},650);
+    setTimeout(()=>{showStadium();Stadium.relayout(true);},650);
     setTimeout(()=>{Stadium.zoomToMySeat();},1500);
 
     if(typeof supabaseClient !== 'undefined'){
@@ -2571,7 +2571,7 @@ function onNewLetter(letterIdx){
   if(typeof Stadium!=='undefined' && Stadium.assign) Stadium.assign();
   if($('#wallui').classList.contains('on')){
     const letter=S.letters[letterIdx];
-    if(letter && letter.id!==skipSoundForLetterId) playGoalSound();
+    if(isDesktop() && letter && letter.id!==skipSoundForLetterId) playGoalSound();
     if(letter && letter.id===skipSoundForLetterId) skipSoundForLetterId=null;
     if(isDesktop() && typeof Stadium!=='undefined' && Stadium.zoomToLetter){
       setTimeout(()=>Stadium.zoomToLetter(letterIdx),350);
