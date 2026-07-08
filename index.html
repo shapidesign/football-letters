@@ -1398,6 +1398,7 @@ const FootballSim = (function(){
   /* ── tuning ── */
   const FAST=/[?&]fast/.test(location.search);   /* ?fast → compressed demo match */
   const HALF_REAL_MS = FAST?60*1000:10*60*1000;  /* one 45' half plays out in 10 real minutes */
+  const PACE         = 0.75;        /* global on-pitch motion multiplier — lower = slower play */
   const CELEBRATE_MS = 2800;        /* goal celebration length */
   const BREAK_MS     = 3200;        /* half-time / full-time hold */
   const KICKOFF_MS   = 900;
@@ -2100,6 +2101,7 @@ const FootballSim = (function(){
     lastNow=now;
     if(dt>0.05) dt=0.05;
     if(dt<=0) return;
+    dt*=PACE;   /* slow all kinematics; AI timers & shared clock stay real-time */
     /* shared director: derive the score & fire scheduled goals */
     const sn=sharedNow();
     if(ensureSchedule(sn)) resetKickoff(kickoffFor(1),now);   /* new match cycle */
