@@ -721,8 +721,11 @@ const SEED = [
 ];
 
 const PEOPLE = [
-  ['בת זוג','בת הזוג שלי'],['אישה','אשתי'],['אבא','אבא'],['אמא','אמא'],
-  ['בן','הבן שלי'],['בת','הבת שלי'],['סבא','סבא'],['סבתא','סבתא'],['חבר','החבר שלי'],
+  ['בן/בת זוג','בן/בת הזוג שלי'],
+  ['אבא/אמא','אבא/אמא'],
+  ['בן/בת','הבן/הבת שלי'],
+  ['סבא/סבתא','סבא/סבתא'],
+  ['ידיד/ידידה','ידיד/ידידה'],
 ];
 
 const PROMPTS = [
@@ -1394,9 +1397,7 @@ const FootballSim = (function(){
 
   /* ── tuning ── */
   const FAST=/[?&]fast/.test(location.search);   /* ?fast → compressed demo match */
-  const HALF_REAL_MS = FAST?60*1000:5*60*1000;   /* one 45' half plays out in 5 real minutes */
-  const GOAL_MIN_MS  = FAST?8*1000:3*60*1000;    /* guaranteed-goal window: 3–5 real minutes */
-  const GOAL_MAX_MS  = FAST?15*1000:5*60*1000;
+  const HALF_REAL_MS = FAST?60*1000:10*60*1000;  /* one 45' half plays out in 10 real minutes */
   const CELEBRATE_MS = 2800;        /* goal celebration length */
   const BREAK_MS     = 3200;        /* half-time / full-time hold */
   const KICKOFF_MS   = 900;
@@ -1417,10 +1418,58 @@ const FootballSim = (function(){
   let score=[0,0];
   let match={half:1,phase:'kickoff',phaseUntil:0,halfStartAt:0,breakKind:'',concededBy:0,passCount:0};
   let kickoffTeam=0, lastAttTeam=0, lastTurnover=0, lastNow=0;
-  let nextGoalDueAt=0, nextForceAt=0;
   let confetti=[], trailPts=[], trailAt=0;
   let celeb=null;                   /* {team, scorerIdx} while phase==='goal' */
-  let clockTxtAt=0;
+  let clockTxtAt=0, lastScoreStr='';
+
+  /* ── shared match director ──────────────────────────────────────────────
+     Score + clock are pure functions of a wall clock shared across devices,
+     so every viewer's scoreboard reads identically. Ball/player motion stays
+     local & cosmetic (portrait vs landscape can't pixel-sync). Goals are a
+     deterministic per-match schedule; each client just *celebrates* them on
+     the shared timeline. */
+  const EPOCH  = 1704067200000;              /* fixed anchor: 2024-01-01 UTC */
+  const HALF   = HALF_REAL_MS, BREAK = BREAK_MS;
+  const CYCLE  = 2*HALF + 2*BREAK;           /* h1 + HT + h2 + FT, then reset */
+  /* serverOffset is calibrated once at startup from a Supabase server_time()
+     round-trip, so devices with skewed clocks still show the same score. */
+  let serverOffset = 0;
+  let schedule=[], scheduleCi=null, shownGoals=0;
+  function sharedNow(){ return Date.now()+serverOffset; }
+  function matchTime(sn){ return ((sn-EPOCH)%CYCLE+CYCLE)%CYCLE; }
+  function cycleIndex(sn){ return Math.floor((sn-EPOCH)/CYCLE); }
+  function mulberry32(a){ return function(){ a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296; }; }
+  function buildSchedule(ci){
+    const rnd=mulberry32((ci*2654435761)>>>0);
+    const goals=[];
+    [0, HALF+BREAK].forEach(start=>{
+      const n=1+Math.floor(rnd()*3);         /* 1–3 goals per half → ~a goal every 5 real minutes */
+      for(let k=0;k<n;k++){
+        const frac=0.08+rnd()*0.84;          /* keep off the 0'/45' edges */
+        goals.push({t:start+frac*HALF, team:rnd()<0.5?0:1});
+      }
+    });
+    return goals.sort((a,b)=>a.t-b.t);
+  }
+  function ensureSchedule(sn){
+    const ci=cycleIndex(sn);
+    if(ci===scheduleCi) return false;
+    scheduleCi=ci; schedule=buildSchedule(ci);
+    shownGoals=schedule.filter(g=>g.t<=matchTime(sn)).length;  /* catch up silently */
+    return true;                             /* new match cycle */
+  }
+  function seg(t){
+    if(t<HALF)            return {k:'play',  half:1, pt:t};
+    if(t<HALF+BREAK)      return {k:'break', half:1};
+    if(t<2*HALF+BREAK)    return {k:'play',  half:2, pt:t-(HALF+BREAK)};
+    return                       {k:'break', half:2};
+  }
+  function schedScore(t){
+    let a=0,b=0;
+    for(const g of schedule){ if(g.t>t) break; if(g.team===0) a++; else b++; }
+    return [a,b];
+  }
+  function kickoffFor(half){ return (scheduleCi + (half===2?1:0)) % 2; }
 
   /* 4-4-2: fx=0 own goal→0.5 halfway, fy=0→1 top→bottom */
   const FORM=[[.04,.50],[.20,.12],[.20,.38],[.20,.62],[.20,.88],[.40,.15],[.40,.38],[.40,.62],[.40,.85],[.48,.30],[.48,.70]];
@@ -1532,73 +1581,50 @@ const FootballSim = (function(){
     const now=performance.now();
     players=[];
     FORM.forEach((_,ri)=>{ players.push(mkP(0,ri)); players.push(mkP(1,ri)); });
-    if(!match.halfStartAt){ match.halfStartAt=now; kickoffTeam=Math.random()<.5?0:1; }
-    if(!nextGoalDueAt) scheduleNextGoal(now);
+    ensureSchedule(sharedNow());
     celeb=null; confetti.length=0;
-    resetKickoff(kickoffTeam,now);
+    resetKickoff(kickoffFor(seg(matchTime(sharedNow())).half),now);
     lastNow=0;
   }
 
-  /* ── guaranteed-goal pacing ── */
-  function scheduleNextGoal(now){
-    nextGoalDueAt=now+GOAL_MIN_MS+Math.random()*(GOAL_MAX_MS-GOAL_MIN_MS);
-    nextForceAt=0;
-  }
-  function goalUrgency(now){
-    if(!nextGoalDueAt) return 0;
-    const left=nextGoalDueAt-now;
-    if(left<=0) return 1;
-    if(left<=90000) return 0.72+(1-left/90000)*0.28;
-    if(left<=180000) return 0.38+(1-left/180000)*0.34;
-    return Math.max(0,(GOAL_MAX_MS-left)/(GOAL_MAX_MS-GOAL_MIN_MS)*0.22);
-  }
-  /* overdue well past the window → snap the ball to the best-placed attacker
-     and fire an unsavable shot (ponytail: blunt, but guarantees the show goes on) */
-  function forceGoalNow(now){
-    const team=lastAttTeam;
-    const idx=bestShooter(team);
-    if(idx<0) return;
-    const s=players[idx];
-    capture(idx,now);
-    ball.x=s.x; ball.y=s.y;
-    shoot(s,team,now,true,true);
+  /* ── goal pacing: the ball surges as a *scheduled* goal approaches; goals
+     are never scored organically (the shared schedule owns the score). ── */
+  function goalUrgency(){
+    const t=matchTime(sharedNow());
+    let next=Infinity;
+    for(const g of schedule){ if(g.t>t){ next=g.t; break; } }
+    const left=next-t;
+    if(!isFinite(left)) return 0.12;
+    if(left<=8000)  return 1;
+    if(left<=60000) return 0.4+(1-left/60000)*0.5;
+    return 0.15;
   }
 
-  /* ── match phases: kickoff → play → (goal | break) ── */
+  /* ── match phases driven by the shared clock: kickoff → play → break ──
+     ('goal' is a transient local celebration fired from the schedule.) */
   function tickMatch(now){
-    if(match.phase==='kickoff'){
-      if(now>=match.phaseUntil) match.phase='play';
+    if(match.phase==='goal'){
+      if(now>=match.phaseUntil){ celeb=null; resetKickoff(match.concededBy,now); }
       return;
     }
-    if(match.phase==='play'){
-      if(now-match.halfStartAt>=HALF_REAL_MS && !ball.inFlight){
-        match.phase='break';
-        match.breakKind=match.half===1?'ht':'ft';
-        match.phaseUntil=now+BREAK_MS;
-        ball.holderIdx=-1; ball.inFlight=false; ball.vx=ball.vy=0;
-        ball.unsavable=false;
+    const s=seg(matchTime(sharedNow()));
+    if(s.k==='break'){
+      if(match.phase!=='break'){
+        match.phase='break'; match.half=s.half;
+        ball.holderIdx=-1; ball.inFlight=false; ball.vx=ball.vy=0; ball.unsavable=false;
         const c=clampPitchPt({x:pr.px+pr.pw/2,y:pr.py+pr.ph/2});
         ball.x=c.x; ball.y=c.y;
       }
       return;
     }
-    if(match.phase==='goal'){
-      if(now>=match.phaseUntil){
-        celeb=null;
-        resetKickoff(match.concededBy,now);
-      }
+    if(match.phase==='break'){          /* break ended → fresh kickoff */
+      match.half=s.half;
+      resetKickoff(kickoffFor(s.half),now);
       return;
     }
-    if(match.phase==='break' && now>=match.phaseUntil){
-      if(match.breakKind==='ht'){
-        match.half=2; match.halfStartAt=now;
-        resetKickoff(1-kickoffTeam,now);
-      }else{
-        score=[0,0]; renderScoreboard();
-        match.half=1; match.halfStartAt=now;
-        scheduleNextGoal(now);
-        resetKickoff(Math.random()<.5?0:1,now);
-      }
+    if(match.phase==='kickoff'){
+      if(now>=match.phaseUntil) match.phase='play';
+      return;
     }
   }
 
@@ -1696,13 +1722,8 @@ const FootballSim = (function(){
       return;
     }
 
-    const urgency=goalUrgency(now);
-    const golden=now>=nextGoalDueAt;
-    if(golden && now>=nextGoalDueAt+(FAST?4000:25000) && (!nextForceAt||now>=nextForceAt)
-       && !(ball.inFlight&&ball.mode==='shot')){
-      forceGoalNow(now);
-      nextForceAt=now+(reduceMotion?18000:10000);
-    }
+    const urgency=goalUrgency();
+    const golden=urgency>=0.999;   /* final seconds before a scheduled goal → push hard */
 
     const SPD={gk:unit*0.15, defHold:unit*0.13, midOff:unit*0.18, attRun:unit*(0.235+urgency*0.04),
                carrier:unit*(0.215+urgency*0.05), press:unit*0.205, chase:unit*0.235};
@@ -1873,19 +1894,9 @@ const FootballSim = (function(){
     ball.x+=(tx-ball.x)*e; ball.y+=(ty-ball.y)*e;
     ball.vx=h.vx; ball.vy=h.vy;
   }
-  function detectGoal(now){
-    const{px,py,pw,ph,portrait}=pr;
-    if(!portrait){
-      const cyM=py+ph/2, mh=ph*0.108, inMouth=Math.abs(ball.y-cyM)<mh/2;
-      if(inMouth && ball.x<=px+ballR){ onGoal(0,now); return true; }
-      if(inMouth && ball.x>=px+pw-ballR){ onGoal(1,now); return true; }
-    } else {
-      const cxM=px+pw/2, mw=pw*0.108, inMouth=Math.abs(ball.x-cxM)<mw/2;
-      if(inMouth && ball.y<=py+ballR){ onGoal(0,now); return true; }
-      if(inMouth && ball.y>=py+ph-ballR){ onGoal(1,now); return true; }
-    }
-    return false;
-  }
+  /* scoring is schedule-driven (synced across devices), so the ball never
+     scores organically — it just gets cleared off the line by bounceBounds. */
+  function detectGoal(now){ return false; }
   function bounceBounds(){
     const{px,py,pw,ph}=pr, e=0.5;
     if(ball.x<px+ballR){ ball.x=px+ballR; ball.vx=Math.abs(ball.vx)*e; }
@@ -1995,10 +2006,8 @@ const FootballSim = (function(){
     lastTurnover=now;
   }
 
-  /* ── goal! ── */
-  function onGoal(conceding,now){
-    const team=1-conceding;
-    score[team]++; renderScoreboard();
+  /* ── goal! (fired from the shared schedule; score comes from schedScore) ── */
+  function celebrateGoal(team,now){
     const sb=document.getElementById('scoreboard');
     if(sb){ sb.classList.remove('goal-pulse'); void sb.offsetWidth; sb.classList.add('goal-pulse');
             setTimeout(()=>sb.classList.remove('goal-pulse'),1600); }
@@ -2012,8 +2021,7 @@ const FootballSim = (function(){
     ball.x=g.x; ball.y=g.y; ball.vx=ball.vy=0;
     ball.holderIdx=-1; ball.inFlight=false; ball.unsavable=false;
     match.phase='goal'; match.phaseUntil=now+(reduceMotion?1400:CELEBRATE_MS);
-    match.concededBy=conceding;
-    scheduleNextGoal(now);
+    match.concededBy=1-team;
     trailPts.length=0;
   }
   function spawnConfetti(team,now){
@@ -2062,12 +2070,11 @@ const FootballSim = (function(){
   }
 
   /* ── scoreboard + clock ── */
-  function clockMinute(now){
-    if(!match.halfStartAt) return 1;
-    if(match.phase==='break') return match.half===1?45:90;
-    const el=clamp(now-match.halfStartAt,0,HALF_REAL_MS);
-    const m=Math.min(45,Math.floor(el/HALF_REAL_MS*45)+1);
-    return match.half===1?m:45+m;
+  function clockMinute(){
+    const s=seg(matchTime(sharedNow()));
+    if(s.k==='break') return s.half===1?45:90;
+    const m=Math.min(45,Math.floor(s.pt/HALF*45)+1);
+    return s.half===1?m:45+m;
   }
   function renderScoreboard(){
     const d0=document.getElementById('sbDot0'), d1=document.getElementById('sbDot1');
@@ -2080,7 +2087,7 @@ const FootballSim = (function(){
   }
   function updateClockText(now){
     const el=document.getElementById('sbClock');
-    if(el) el.textContent=clockMinute(now)+"'";
+    if(el) el.textContent=clockMinute()+"'";
   }
   function resetScore(){ score=[0,0]; renderScoreboard(); }
 
@@ -2093,6 +2100,16 @@ const FootballSim = (function(){
     lastNow=now;
     if(dt>0.05) dt=0.05;
     if(dt<=0) return;
+    /* shared director: derive the score & fire scheduled goals */
+    const sn=sharedNow();
+    if(ensureSchedule(sn)) resetKickoff(kickoffFor(1),now);   /* new match cycle */
+    const t=matchTime(sn);
+    let passed=0; for(const g of schedule){ if(g.t<=t) passed++; else break; }
+    if(passed-shownGoals>1) shownGoals=passed;              /* tab was backgrounded → catch up, no celebration burst */
+    else while(shownGoals<passed){ celebrateGoal(schedule[shownGoals].team,now); shownGoals++; }
+    score=schedScore(t);
+    const ss=score[0]+'-'+score[1];
+    if(ss!==lastScoreStr){ lastScoreStr=ss; renderScoreboard(); }
     tickMatch(now);
     runAI(now);
     stepPlayers(dt,now);
@@ -2207,7 +2224,11 @@ const FootballSim = (function(){
     gk0=gkColorFor(teamColor0,teamColor1); gk1=gkColorFor(teamColor1,teamColor0);
     renderScoreboard();
   }
-  return{reinit,update,draw,setTeamColors,setTeamColor:(p)=>setTeamColors(p,bestContrast(p)),renderScoreboard,resetScore};
+  function setServerOffset(ms){
+    serverOffset=ms;
+    scheduleCi=null;               /* rebuild goal schedule against the corrected clock */
+  }
+  return{reinit,update,draw,setTeamColors,setTeamColor:(p)=>setTeamColors(p,bestContrast(p)),renderScoreboard,resetScore,setServerOffset};
 })();
 
 /* ── reader ── */
@@ -2614,6 +2635,16 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const myId = Math.random().toString(36).slice(2);
 let broadcastChannel = null;
+
+/* calibrate the match clock against the server so every device shows the same score */
+(async()=>{
+  try{
+    const t0=Date.now();
+    const { data, error } = await supabaseClient.rpc('server_time');
+    const t1=Date.now();
+    if(!error && data) FootballSim.setServerOffset(Date.parse(data)+(t1-t0)/2 - t1);
+  }catch(e){} /* offset stays 0 → falls back to the device clock */
+})();
 
 async function initSupabase(){
   toast('טוען מכתבים…',8000);
