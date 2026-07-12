@@ -367,6 +367,19 @@ body.ui-open{overflow:auto;-webkit-overflow-scrolling:touch}
 <div id="gate"><div id="gate-l"></div><div id="gate-r"></div></div>
 <button id="backBtn" aria-label="חזרה">←</button>
 
+<button id="infoBtn" aria-label="על הפרויקט"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+
+<div id="infoModal" role="dialog" aria-modal="true" aria-labelledby="infoTitle" aria-hidden="true">
+  <div class="lm-inner">
+    <div class="lm-header"><span id="infoTitle">על הפרויקט</span> <button id="infoClose" aria-label="סגירה"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="info-body">
+      <p><strong>אצטדיון האהבה</strong> הוא פרויקט אינטראקטיבי שמזמין אתכם לכתוב מכתב אהבה לקבוצת הכדורגל שאתם אוהבים — ואז מגלה לכם משהו: אותן מילים בדיוק יכולות להגיע גם למי שאתם באמת אוהבים בחיים.</p>
+      <p><strong>הנושא:</strong> ביטוי רגשי. ביציע אנחנו שרים, צועקים ומצהירים אהבה בלי מעצורים — אבל דווקא לאנשים הקרובים לנו קשה להגיד את זה. הפרויקט לוקח את הרגש שקל לבטא על המגרש ומעביר אותו הביתה, למי שהמילים באמת מגיעות לו.</p>
+      <p class="info-credit">נבנה ע״י <a href="https://www.alefsofit.com/" target="_blank" rel="noopener">יהונתן שפירא</a></p>
+    </div>
+  </div>
+</div>
+
 <div id="legendModal" role="dialog" aria-modal="true" aria-labelledby="legendTitle" aria-hidden="true">
   <div class="lm-inner">
     <div class="lm-header"><span id="legendTitle">מכתבים באצטדיון</span> <button id="legendClose" aria-label="סגירה"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
@@ -2670,6 +2683,11 @@ $('#legendBtn').onclick=openLegend;
 $('#scoreboard').onclick=openLegend;
 $('#legendClose').onclick=closeLegend;
 $('#legendModal').onclick=e=>{if(e.target.id==='legendModal') closeLegend();};
+
+/* ── info modal ── */
+$('#infoBtn').onclick=()=>openDialog($('#infoModal'),'#infoClose');
+$('#infoClose').onclick=()=>closeDialog($('#infoModal'));
+$('#infoModal').onclick=e=>{if(e.target.id==='infoModal') closeDialog($('#infoModal'));};
 
 /* ── Supabase ── */
 const SUPABASE_URL = 'https://svmgctxeojtdbntecohm.supabase.co';
