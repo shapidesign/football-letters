@@ -2430,7 +2430,6 @@ $('#sendWA').onclick=()=>{
 $('#notNow').onclick=()=>{toast('לא עכשיו. אבל המילים נשארות איתך.');joinWall();};
 
 async function joinWall(){
-  primeAudio();
   const myLocalLetter = {clubId:S.club.id,text:S.text,len:S.text.length};
   S.letters.push(myLocalLetter);
   S.pendingMyIndex=S.letters.length-1;
@@ -2490,28 +2489,33 @@ function toast(msg){const e=$('#toastTxt');e.textContent=msg;e.classList.add('on
 /* ── desktop detection (mobile-first; desktop is the display screen) ── */
 function isDesktop(){ return window.matchMedia('(min-width:1024px) and (pointer:fine)').matches; }
 
-/* ── goal sound effect (plays only when a letter is submitted) ── */
-const goalSound = new Audio('goal.mp3');
-goalSound.preload='auto';
-goalSound.volume=0.5;          /* reduced 50% from default */
-let audioPrimed=false;
+/* ── goal sound (Web Audio — no media UI on open; plays only on new letter) ── */
+let _ac=null, _goalBuf=null, _goalReady=null;
 let skipSoundForLetterId=null;          /* suppress duplicate when our own insert echoes back */
-function primeAudio(){
-  if(audioPrimed) return;
-  audioPrimed=true;
-  /* unlock playback silently inside a user gesture */
-  const vol=goalSound.volume;
-  goalSound.volume=0;
-  goalSound.play().then(()=>{
-    goalSound.pause(); goalSound.currentTime=0; goalSound.volume=vol;
-  }).catch(()=>{ goalSound.volume=vol; });
+function unlockAudio(){
+  try{
+    _ac=_ac||new (window.AudioContext||window.webkitAudioContext)();
+    if(_ac.state==='suspended') _ac.resume();
+    if(!_goalReady){
+      _goalReady=fetch('goal.mp3').then(r=>r.arrayBuffer())
+        .then(b=>_ac.decodeAudioData(b)).then(buf=>{_goalBuf=buf;}).catch(()=>{});
+    }
+  }catch(e){}
 }
 function playGoalSound(){
-  if(!audioPrimed) return;
-  try{ goalSound.currentTime=0; goalSound.play().catch(()=>{}); }catch(e){}
+  try{
+    unlockAudio();
+    const go=()=>{
+      if(!_goalBuf||!_ac) return;
+      if(_ac.state==='suspended') _ac.resume();
+      const s=_ac.createBufferSource(), g=_ac.createGain();
+      g.gain.value=0.5; s.buffer=_goalBuf; s.connect(g); g.connect(_ac.destination); s.start(0);
+    };
+    if(_goalBuf) go(); else if(_goalReady) _goalReady.then(go);
+  }catch(e){}
 }
-/* silent unlock on first interaction so submit-time playback is allowed */
-document.addEventListener('pointerdown',primeAudio,{once:true});
+/* unlock AudioContext on first gesture (silent — no Now Playing / media bar) */
+document.addEventListener('pointerdown',unlockAudio,{once:true});
 
 /* ── "someone is writing" banner: shows for 10s each time a new writer starts ── */
 let writingBannerT=null;
