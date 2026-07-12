@@ -96,6 +96,12 @@ body.ui-open{overflow:auto;-webkit-overflow-scrolling:touch}
 }
 
 .cta-wrap{pointer-events:auto;display:flex;flex-direction:column;align-items:center}
+.wall-qr{display:none;width:96px;height:96px;border-radius:12px;background:#fff;
+  padding:6px;box-shadow:0 4px 16px rgba(0,0,0,.35);flex:none}
+@media(min-width:1024px) and (pointer:fine){
+  .cta-wrap{flex-direction:row;gap:16px}
+  .wall-qr{display:block}
+}
 .wall-cta{font-family:'Reisinger-Yarden-MaccabiahRound','Rubik',sans-serif;font-weight:700;font-size:clamp(15px,3.8vw,19px);
   color:var(--oc);background:var(--cp);border:none;border-radius:999px;
   padding:16px 32px;cursor:pointer;white-space:normal;text-align:center;max-width:92vw;
@@ -357,6 +363,7 @@ body.ui-open{overflow:auto;-webkit-overflow-scrolling:touch}
   <div id="seatOverlay" aria-hidden="true"></div>
   <button id="legendBtn" aria-label="מכתבים באצטדיון"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19v16H6.5a2.5 2.5 0 0 0 0 5H20"/></svg> מכתבים <span id="legendCount">0</span></button>
   <div class="cta-wrap">
+    <img class="wall-qr" src="qr-code.png" alt="QR code" width="96" height="96">
     <button class="wall-cta" id="addBtn">כתוב מכתב אהבה לקבוצה שאתה כל כך אוהב</button>
   </div>
 </div>
@@ -916,8 +923,6 @@ const Stadium = (function(){
   let animFrame = null;
   let cam = {scale:1, ox:0, oy:0};
   let camAnim = null;
-  const qrImg = new Image();
-  qrImg.src = 'qr-code.png';
 
   function sw(){ return Math.max(4, Math.min(9, W/95)); }
   function sh(){ return Math.max(3, Math.min(7, H/105)); }
@@ -1130,15 +1135,6 @@ const Stadium = (function(){
     ctx.beginPath(); ctx.arc(px+pw/2,py+ph/2,ccr,0,Math.PI*2); ctx.stroke();
     ctx.beginPath(); ctx.arc(px+pw/2,py+ph/2,2.5,0,Math.PI*2);
     ctx.fillStyle='rgba(255,255,255,.85)'; ctx.fill();
-    /* desktop display: QR in centre circle */
-    if(typeof isDesktop==='function'&&isDesktop()&&qrImg.complete&&qrImg.naturalWidth){
-      const cx=px+pw/2, cy=py+ph/2, r=ccr*0.92, sz=r*2;
-      ctx.save();
-      ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.clip();
-      ctx.fillStyle='#fff'; ctx.fillRect(cx-r,cy-r,sz,sz);
-      ctx.drawImage(qrImg,cx-r,cy-r,sz,sz);
-      ctx.restore();
-    }
     // corner arc radius
     const car=shorter*.038;
 
